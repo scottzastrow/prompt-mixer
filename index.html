@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Prompt Mixer</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="header">
+        <h1>Prompt Mixer</h1>
+        <p>See how context and instructions change a prompt</p>
+      </header>
+
+      <div class="divider"></div>
+
+      <form id="prompt-form" novalidate>
+        <section class="field-block required-block">
+          <div class="field-header">
+            <label for="raw-prompt">Raw prompt</label>
+            <span>Always included</span>
+          </div>
+          <textarea id="raw-prompt" name="rawPrompt" placeholder="Enter your raw prompt" required></textarea>
+        </section>
+
+        <section class="optional-field">
+          <div class="toggle-row">
+            <label class="checkbox-label">
+              <input id="include-context" type="checkbox" checked />
+              <span class="checkbox-box" aria-hidden="true"></span>
+              <span>Context</span>
+            </label>
+          </div>
+          <textarea id="context-input" name="context" placeholder="Add context to include"></textarea>
+        </section>
+
+        <section class="optional-field">
+          <div class="toggle-row">
+            <label class="checkbox-label">
+              <input id="include-role" type="checkbox" checked />
+              <span class="checkbox-box" aria-hidden="true"></span>
+              <span>Role</span>
+            </label>
+          </div>
+          <textarea id="role-input" name="role" placeholder="Add a role or perspective"></textarea>
+        </section>
+
+        <section class="optional-field">
+          <div class="toggle-row">
+            <label class="checkbox-label">
+              <input id="include-constraints" type="checkbox" checked />
+              <span class="checkbox-box" aria-hidden="true"></span>
+              <span>Constraints</span>
+            </label>
+          </div>
+          <textarea id="constraints-input" name="constraints" placeholder="Define constraints or style guidance"></textarea>
+        </section>
+
+        <button id="show-mix" type="submit" class="show-mix-button">Show Mix</button>
+      </form>
+
+      <section class="output-section" aria-live="polite">
+        <h2>Combined prompt</h2>
+        <div class="output-box" id="output-box">
+          <p id="output-text">Ready to mix</p>
+        </div>
+        <button id="copy-button" type="button" class="copy-button" aria-label="Copy assembled prompt">
+          Copy
+        </button>
+      </section>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>
