@@ -1,6 +1,6 @@
 # Prompt Mixer — tasks for this iteration
 
-This iteration focuses on the revised prompt-mixer behavior in [SPEC.md](SPEC.md) and the implementation plan in [PLAN.md](PLAN.md). Completed work is checked. Deployment and live API generation are recorded below. The production app and shared-host smoke checks passed. Certificate renewal dry run remains a follow-up.
+This iteration focuses on the revised prompt-mixer behavior in [SPEC.md](SPEC.md) and the implementation plan in [PLAN.md](PLAN.md). Completed work is checked. Deployment and live API generation are recorded below. The production app, shared-host smoke checks, and simulated certificate renewals passed.
 
 ## Core app behavior
 
@@ -29,7 +29,7 @@ This iteration focuses on the revised prompt-mixer behavior in [SPEC.md](SPEC.md
 - Node.js 22 runs the app through the separate `promptmixer` systemd service on `127.0.0.1:8081`. The Prompt Mixer OpenAI project key is stored in the protected service environment file outside Git.
 - Nginx serves the app over HTTPS behind basic authentication. Unauthenticated HTTPS returned 401; HTTP returned 301 to HTTPS. The previous Nginx site file was backed up before the proxy change.
 - Both local server tests passed. A live raw prompt and a subsequent prompt with Context each returned an AI response; the contextual answer used the supplied loops example.
-- EDI continued to load on the shared host after deployment, completing the integrated app smoke check. A `sudo certbot renew --dry-run` remains to be run as a separate certificate maintenance check.
+- EDI continued to load on the shared host after deployment, completing the integrated app smoke check. `sudo certbot renew --dry-run` succeeded for both Prompt Mixer and EDI certificates.
 
 ## Homework 3 reflection — written by Scott
 
