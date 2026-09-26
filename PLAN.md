@@ -22,4 +22,4 @@ Build one screen that shows how optional prompt instructions affect the text sen
 
 ## Known dependency
 
-The Bluehost A record points `promptmixer.vergotek.com` to `3.134.129.111`. HTTP worked, but the first Certbot attempt failed because Let's Encrypt still saw NXDOMAIN. Retry certificate issuance when public DNS resolves reliably. Do not enable password entry over plain HTTP.
+The Bluehost A record points `promptmixer.vergotek.com` to `3.134.129.111`. HTTP worked; the first Certbot attempt failed because Let's Encrypt saw NXDOMAIN. A later Certbot attempt succeeded on September 25 (Chicago time) and installed the certificate. Verify HTTPS and the HTTP redirect before enabling authenticated access and the paid API endpoint. Do not enable password entry over plain HTTP.

@@ -18,7 +18,7 @@ Tasks are grouped by a verifiable result. Status reflects the September 25 deplo
 ## Online deployment
 
 - [x] T8: Create the Bluehost A record and deploy the original static app to the existing Lightsail host. Confirm HTTP loads and EDI still runs.
-- [ ] T9: Retry Certbot when public DNS resolves; verify a valid HTTPS certificate and HTTP redirect.
+- [x] T9: Retry Certbot when public DNS resolves. Certificate issuance and deployment succeeded on September 25 (Chicago time); verify the HTTPS response and HTTP redirect during final smoke testing.
 - [ ] T10: Install Node.js, deploy the reviewed AI branch to `/opt/promptmixer`, and start a separate `promptmixer` systemd service on `127.0.0.1:8081`.
 - [ ] T11: Store the project key outside Git in a protected service environment file. Add Nginx basic authentication to the HTTPS app location, then proxy to the service.
 - [ ] T12: Verify Show Mix, Copy, real AI generation, access control, logs, and the unaffected EDI site. Record any changes needed for the next iteration.
