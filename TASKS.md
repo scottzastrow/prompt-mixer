@@ -1,28 +1,28 @@
-# Prompt Mixer — tasks
+# Prompt Mixer — tasks for this iteration
 
-Tasks are grouped by a verifiable result. Status reflects the September 25 deployment handoff and the draft AI branch; a completed code task does not imply the feature is live.
+This iteration focuses on the revised prompt-mixer behavior in [SPEC.md](SPEC.md) and the implementation plan in [PLAN.md](PLAN.md). Completed work is checked. Deployment and live API verification remain intentionally unchecked until the production site is fully tested.
 
-## Prompt construction
+## Core app behavior
 
-- [x] T1: Build Raw, Context, Role, and Constraints inputs with optional checkboxes. Verify the Raw prompt is always included.
-- [x] T2: Build Show Mix and Copy. Verify unchecked and blank optional fields do not appear in the assembled prompt.
-- [x] T3: Commit the static app and Homework 2 files to the public repository.
+- [x] T1: Build the Raw, Context, Role, and Constraints inputs with the optional checkbox logic. The Raw prompt remains required.
+- [x] T2: Build Show Mix and Copy so the assembled prompt matches the current checked inputs and omits blank or unchecked optional fields.
+- [x] T3: Ensure changing any input clears the prior AI answer so it cannot be confused with the current prompt.
 
-## AI response
+## Server and AI generation
 
-- [x] T4: Add a server-side generation endpoint with input validation and a private OpenAI API key reference.
-- [x] T5: Connect Generate Response to the current mix and display loading, result, and error states.
-- [x] T6: Run local server checks with a simulated AI response and verify public files contain no real key.
-- [ ] T7: Run a live API request using the separate Prompt Mixer project key; verify the returned answer corresponds to the checked fields.
+- [x] T4: Add a server-side generation endpoint that validates the incoming prompt and calls the OpenAI API from the server only.
+- [x] T5: Connect Generate Response to the current assembled prompt and show loading, result, and error states.
+- [x] T6: Verify locally that a simulated API response works and that public files do not expose the API key.
+- [ ] T7: Run a live API request with the separate Prompt Mixer project key and verify the returned answer corresponds to the selected fields.
 
-## Online deployment
+## Deployment and production checks
 
-- [x] T8: Create the Bluehost A record and deploy the original static app to the existing Lightsail host. Confirm HTTP loads and EDI still runs.
-- [x] T9: Retry Certbot when public DNS resolves. Certificate issuance and deployment succeeded on September 25 (Chicago time); verify the HTTPS response and HTTP redirect during final smoke testing.
-- [ ] T10: Install Node.js, deploy the reviewed AI branch to `/opt/promptmixer`, and start a separate `promptmixer` systemd service on `127.0.0.1:8081`.
-- [ ] T11: Store the project key outside Git in a protected service environment file. Add Nginx basic authentication to the HTTPS app location, then proxy to the service.
-- [ ] T12: Verify Show Mix, Copy, real AI generation, access control, logs, and the unaffected EDI site. Record any changes needed for the next iteration.
+- [x] T8: Install the TLS certificate for promptmixer.vergotek.com via Certbot; HTTPS is complete on the production hostname.
+- [ ] T9: Provision the private Node service environment, install Node.js runtime dependencies, and start the app on the local-only port behind Nginx.
+- [ ] T10: Add Nginx basic authentication for the Prompt Mixer site while keeping the app on the private local port and preserving the HTTPS redirect.
+- [ ] T11: Verify the live AI response with the project key and confirm the app, auth, and EDI site all work together in production.
+- [ ] T12: Record deployment notes and any follow-up changes needed for the next iteration.
 
 ## Homework 3 reflection — written by Scott
 
-After implementation, write a short account **in your own words** of what you learned, how long the work took (especially implementation), and the challenges encountered. The professor suggested less than a page and does not want AI to write this reflection. Concrete points you might choose to discuss: correcting the checkbox behavior, the difference between Copilot building an app and an app calling AI, separating API keys, and DNS propagation delaying HTTPS. Use only points that match your own experience.
+After implementation, write a short account in your own words of what you learned, how long the work took (especially implementation), and the challenges encountered. The professor suggested less than a page and does not want AI to write this reflection. Concrete points you might choose to discuss: correcting the checkbox behavior, the difference between Copilot building an app and an app calling AI, separating API keys, and DNS propagation delaying HTTPS. Use only points that match your own experience.
