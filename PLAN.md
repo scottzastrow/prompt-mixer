@@ -16,10 +16,10 @@ Build one screen that shows how optional prompt instructions affect the text sen
 ## Iteration and verification
 
 - **Iteration 1 (built):** Assemble and copy a prompt. Verify that each checkbox includes or omits its field.
-- **Iteration 2 (draft PR):** Generate a real AI answer. Verify required input, server validation, API response handling, and that the key does not appear in public files. The local test uses a simulated API reply; the live call still needs testing.
-- **Iteration 3 (in progress):** Finish HTTPS, deploy the backend, add access control, and verify the site, AI reply, and EDI independently.
+- **Iteration 2 (built):** Generate a real AI answer. Verify required input, server validation, API response handling, and that the key does not appear in public files. Two local tests passed and a live answer was verified.
+- **Iteration 3 (deployed):** HTTPS, the private Node service, and basic authentication are in place. Live raw and contextual answers worked; EDI remained available. Simulated certificate renewals succeeded for both sites.
 - **Later experiment:** Compare Raw and Mixed answers side by side. Add this to the spec before implementation; it is not part of the current deployment gate.
 
 ## Known dependency
 
-The Bluehost A record points `promptmixer.vergotek.com` to `3.134.129.111`. HTTP worked; the first Certbot attempt failed because Let's Encrypt saw NXDOMAIN. A later Certbot attempt succeeded on September 25 (Chicago time) and installed the certificate. Verify HTTPS and the HTTP redirect before enabling authenticated access and the paid API endpoint. Do not enable password entry over plain HTTP.
+The Bluehost A record points `promptmixer.vergotek.com` to `3.134.129.111`. HTTP worked; the first Certbot attempt failed because Let's Encrypt saw NXDOMAIN. A later Certbot attempt succeeded on September 25 (Chicago time) and installed the certificate. HTTPS and the HTTP redirect were verified before authenticated access and the paid API endpoint went live.
