@@ -186,6 +186,43 @@ textarea:focus-visible {
   transition: filter 0.15s ease, transform 0.15s ease;
 }
 
+.actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.actions button { flex: 1; margin-top: 0; }
+.generate-button {
+  border: 1px solid var(--primary);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--primary);
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.generate-button:hover, .generate-button:focus-visible { background: var(--primary-soft); }
+.generate-button:disabled { opacity: .6; cursor: wait; }
+.response-section { margin-top: 26px; }
+.response-section h2 { font-size: 17px; margin-bottom: 10px; }
+#response-status { color: var(--muted); font-size: 14px; }
+.response-box {
+  padding: 16px;
+  border: 1px solid var(--stroke);
+  border-radius: 10px;
+  background: var(--bg);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.55;
+}
+@media (max-width: 600px) {
+  body { padding: 12px; }
+  .app-shell { padding: 22px; }
+  .actions { flex-direction: column; }
+  .actions button { min-height: 48px; }
+}
+
 .show-mix-button:hover,
 .show-mix-button:focus-visible {
   filter: brightness(1.05);

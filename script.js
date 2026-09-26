@@ -2,6 +2,11 @@ const form = document.getElementById('prompt-form');
 const rawPromptInput = document.getElementById('raw-prompt');
 const outputText = document.getElementById('output-text');
 const copyButton = document.getElementById('copy-button');
+const generateButton = document.getElementById('generate-response');
+const responseSection = document.querySelector('.response-section');
+const responseStatus = document.getElementById('response-status');
+const responseText = document.getElementById('response-text');
+let activeRequest = null;
 
 function getOptionalFieldConfigs() {
   return [
@@ -60,9 +65,63 @@ function renderPrompt() {
   return assembledPrompt;
 }
 
-document.getElementById('show-mix').addEventListener('click', (event) => {
+form.addEventListener('submit', (event) => {
   event.preventDefault();
   renderPrompt();
+});
+
+function clearResponse() {
+  if (activeRequest) {
+    activeRequest.abort();
+    activeRequest = null;
+  }
+  generateButton.disabled = false;
+  generateButton.textContent = 'Generate Response';
+  responseSection.setAttribute('aria-busy', 'false');
+  responseText.hidden = true;
+  responseText.textContent = '';
+  responseStatus.textContent = 'Generate a response to compare the effect of your selected instructions.';
+}
+
+form.addEventListener('input', clearResponse);
+form.addEventListener('change', clearResponse);
+
+generateButton.addEventListener('click', async () => {
+  const prompt = renderPrompt();
+  if (!prompt) return;
+
+  const request = new AbortController();
+  activeRequest = request;
+  generateButton.disabled = true;
+  generateButton.textContent = 'Generating…';
+  responseSection.setAttribute('aria-busy', 'true');
+  responseText.hidden = true;
+  responseStatus.textContent = 'Generating an AI response…';
+
+  try {
+    const result = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt }),
+      signal: request.signal,
+    });
+    const data = await result.json();
+    if (!result.ok) throw new Error(data.error || 'Could not generate a response.');
+    responseText.textContent = data.response;
+    responseText.hidden = false;
+    responseStatus.textContent = 'Response generated. Change a field and generate again to compare.';
+  } catch (error) {
+    if (error.name !== 'AbortError') {
+      responseStatus.textContent = error.message || 'Could not connect to the server.';
+    }
+  } finally {
+    if (activeRequest === request) {
+      activeRequest = null;
+      generateButton.disabled = false;
+      generateButton.textContent = 'Generate Response';
+      responseSection.setAttribute('aria-busy', 'false');
+    }
+  }
 });
 
 copyButton.addEventListener('click', async () => {
@@ -97,5 +156,5 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('context-input').value = 'I am new to programming and understand loops.';
   document.getElementById('role-input').value = 'Act as a patient programming instructor.';
   document.getElementById('constraints-input').value = 'Use a simple analogy and one short Python example.';
-  outputText.textContent = 'Raw + Context + Role + Constraints  ·  Ready to copy';
+  renderPrompt();
 });

@@ -10,7 +10,7 @@
     <main class="app-shell">
       <header class="header">
         <h1>Prompt Mixer</h1>
-        <p>See how context and instructions change a prompt</p>
+        <p>See how context and instructions change an AI response</p>
       </header>
 
       <div class="divider"></div>
@@ -57,7 +57,10 @@
           <textarea id="constraints-input" name="constraints" placeholder="Define constraints or style guidance"></textarea>
         </section>
 
-        <button id="show-mix" type="submit" class="show-mix-button">Show Mix</button>
+        <div class="actions">
+          <button id="show-mix" type="submit" class="show-mix-button">Show Mix</button>
+          <button id="generate-response" type="button" class="generate-button">Generate Response</button>
+        </div>
       </form>
 
       <section class="output-section" aria-live="polite">
@@ -68,6 +71,11 @@
         <button id="copy-button" type="button" class="copy-button" aria-label="Copy assembled prompt">
           Copy
         </button>
+      </section>
+      <section class="response-section" aria-live="polite" aria-busy="false">
+        <h2>AI response</h2>
+        <p id="response-status" role="status">Generate a response to compare the effect of your selected instructions.</p>
+        <div id="response-text" class="response-box" hidden></div>
       </section>
     </main>
 
