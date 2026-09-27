@@ -6,14 +6,14 @@ Make the effect of prompt context visible in both the assembled instructions and
 
 ## Behavior
 
-The raw prompt is required. Context, Role, and Constraints are optional and included only when their checkboxes are selected and their fields are nonempty. Show Mix displays the assembled text; Copy copies it. Generate Response sends the current assembled text to the server and displays an AI answer. Changing any input clears the old answer so it cannot be confused with the current mix.
+The raw prompt is required. Context, Role, and Constraints are optional and included only when their checkboxes are selected and their fields are nonempty. Show Mix displays the assembled text. Generate Response sends the current assembled text to the server and displays an AI answer. Changing any input clears the old answer so it cannot be confused with the current mix.
 
 ## Constraints
 
 - No database or user account in this iteration.
 - OpenAI requests happen on the server. The browser never receives the API key.
 - The initial deployment is protected by HTTPS and Nginx basic authentication to prevent anonymous API spending.
-- A public classroom release allows the page to load without a password. Only Generate Response is rate limited on the server: 100 accepted requests per minute per IP, 200 per UTC day per IP, and 1,000 per UTC day for the site. Valid generation attempts count even if OpenAI fails. Show Mix and Copy remain available when a limit is reached.
+- A public classroom release allows the page to load without a password. Only Generate Response is rate limited on the server: 100 accepted requests per minute per IP, 200 per UTC day per IP, and 1,000 per UTC day for the site. Valid generation attempts count even if OpenAI fails. Show Mix remains available when a limit is reached.
 - The private rate state survives service restarts. The server returns 429 and a clear retry message before contacting OpenAI when a limit is reached. A missing or unwritable state store blocks generation.
 - The app runs on a private local port behind Nginx, using systemd on an existing or dedicated Ubuntu host.
 - No prompt or response history is saved by the app. OpenAI data handling follows the API platform's current policies.
@@ -23,7 +23,7 @@ The raw prompt is required. Context, Role, and Constraints are optional and incl
 1. Raw alone produces a prompt and AI output.
 2. Each optional checkbox changes the assembled prompt and the text sent for generation.
 3. Blank optional fields are omitted, and an empty raw field is rejected.
-4. Copy copies exactly what Show Mix displays.
+4. Show Mix displays exactly the fields selected for generation.
 5. Loading or editing the page does not expose an API key in HTML or JavaScript.
 6. An unavailable API returns a visible error without losing the inputs.
 7. HTTPS, anonymous page access, local-only app port, and a live response work on the production hostname.
