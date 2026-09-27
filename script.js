@@ -9,10 +9,10 @@ const presets = {
     constraints: 'Name three essentials in 18 words or fewer.',
   },
   two: {
-    prompt: 'What should I make for dinner? Answer in one sentence.',
-    context: 'I have chickpeas, rice, and spinach, and only 20 minutes.',
-    role: 'Act as a practical home cook.',
-    constraints: 'Name one meal and one quick preparation step in 18 words or fewer.',
+    prompt: 'In Python, what does print(sum([1, 2, 3])) display? Answer in one sentence.',
+    context: 'I know print(), but I am new to lists and sum().',
+    role: 'Act as a patient Python tutor.',
+    constraints: 'State the printed number and explain why in 18 words or fewer.',
   },
   three: {
     prompt: 'Write me a reminder message. Answer in one sentence.',
