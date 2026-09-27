@@ -2,11 +2,29 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { RequestLimits } from './limits.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const port = Number(process.env.PORT || 8081);
 const host = process.env.HOST || '127.0.0.1';
 const model = process.env.OPENAI_MODEL || 'gpt-5-mini';
+let limits;
+function getLimits() {
+  const path = process.env.LIMIT_STATE_FILE || join(root, '.limit-state.json');
+  if (!limits || limits.path !== path) {
+    const setting = (name, fallback) => {
+      const value = Number(process.env[name] || fallback);
+      if (!Number.isSafeInteger(value) || value < 1) throw new Error(`Invalid ${name}`);
+      return value;
+    };
+    limits = new RequestLimits(path, {
+      perMinute: setting('LIMIT_PER_MINUTE', 100),
+      perDay: setting('LIMIT_PER_IP_DAY', 200),
+      sitePerDay: setting('LIMIT_SITE_DAY', 1000),
+    });
+  }
+  return limits;
+}
 const assets = new Map([
   ['/', ['index.html', 'text/html; charset=utf-8']],
   ['/index.html', ['index.html', 'text/html; charset=utf-8']],
@@ -14,11 +32,12 @@ const assets = new Map([
   ['/styles.css', ['styles.css', 'text/css; charset=utf-8']],
 ]);
 
-function send(res, status, data) {
+function send(res, status, data, extraHeaders = {}) {
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
     'X-Content-Type-Options': 'nosniff',
+    ...extraHeaders,
   });
   res.end(JSON.stringify(data));
 }
@@ -51,6 +70,22 @@ async function generate(req, res) {
   }
   if (!process.env.OPENAI_API_KEY) {
     send(res, 503, { error: 'AI is not configured on this server.' });
+    return;
+  }
+
+  // Nginx appends the actual client address to this header. The app only listens
+  // on loopback, so external clients cannot bypass the proxy or choose its final IP.
+  const forwarded = req.headers['x-forwarded-for'];
+  const ip = typeof forwarded === 'string' ? forwarded.split(',').at(-1).trim() : req.socket.remoteAddress;
+  try {
+    const blocked = getLimits().reserve(ip);
+    if (blocked) {
+      send(res, blocked.status, { error: blocked.error }, { 'Retry-After': String(blocked.retryAfter) });
+      return;
+    }
+  } catch (error) {
+    console.error('Could not persist AI request limit:', error.name);
+    send(res, 503, { error: 'AI responses are temporarily unavailable. Please try again later.' });
     return;
   }
 

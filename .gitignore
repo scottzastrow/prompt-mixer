@@ -2,3 +2,5 @@
 .env.*
 !.env.example
 node_modules/
+.limit-state.json
+.limit-state.json.*.tmp
