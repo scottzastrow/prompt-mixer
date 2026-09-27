@@ -9,10 +9,10 @@ const presets = {
     constraints: 'Name three essentials in 18 words or fewer.',
   },
   two: {
-    prompt: 'What does this Java code print? int total = 0; for (int i = 1; i <= 3; i++) { total += i; } System.out.println(total); Answer in one sentence.',
-    context: 'I know variables but am learning how for loops add values.',
-    role: 'Act as a patient Java instructor.',
-    constraints: 'Give the exact output and briefly explain how total changes in 20 words or fewer.',
+    prompt: 'What is a variable in programming? Answer in one sentence.',
+    context: 'I am new to programming and have not used variables before.',
+    role: 'Act as a patient programming instructor.',
+    constraints: 'Use one concrete everyday example in 20 words or fewer.',
   },
   three: {
     prompt: 'Write me a reminder message. Answer in one sentence.',
