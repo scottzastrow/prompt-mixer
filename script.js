@@ -2,23 +2,25 @@ const form = document.getElementById('prompt-form');
 const rawPromptInput = document.getElementById('raw-prompt');
 const presetSelect = document.getElementById('preset-select');
 const presets = {
-  beginner: {
-    context: 'I have never written code.',
-    role: 'Explain like a friendly teacher.',
-    constraints: 'Use everyday words. Answer in one sentence of 20 words or fewer.',
+  one: {
+    prompt: 'What should I pack for a day hike? Answer in one sentence.',
+    context: 'It will be hot and there is no drinking water on the trail.',
+    role: 'Act as an experienced hiking guide.',
+    constraints: 'Name three essentials in 18 words or fewer.',
   },
-  technical: {
-    context: 'I know basic programming terms.',
-    role: 'Explain like a software engineer.',
-    constraints: 'Mention a name and a value. Answer in one sentence of 20 words or fewer.',
+  two: {
+    prompt: 'What should I make for dinner? Answer in one sentence.',
+    context: 'I have chickpeas, rice, and spinach, and only 20 minutes.',
+    role: 'Act as a practical home cook.',
+    constraints: 'Name one meal and one quick preparation step in 18 words or fewer.',
   },
-  analogy: {
-    context: 'I learn best through real-world comparisons.',
-    role: 'Explain like a creative tutor.',
-    constraints: 'Use one simple analogy. Answer in one sentence of 20 words or fewer.',
+  three: {
+    prompt: 'Write me a reminder message. Answer in one sentence.',
+    context: 'A classmate borrowed my notes last week, and I need them tomorrow.',
+    role: 'Write as a friendly classmate.',
+    constraints: 'Be polite and direct. Use 18 words or fewer.',
   },
 };
-const exampleQuestion = 'What is a variable in programming? Answer in one sentence.';
 const outputText = document.getElementById('output-text');
 const copyButton = document.getElementById('copy-button');
 const generateButton = document.getElementById('generate-response');
@@ -115,7 +117,7 @@ form.addEventListener('change', clearOutputs);
 presetSelect.addEventListener('change', () => {
   const preset = presets[presetSelect.value];
   if (!preset) return;
-  rawPromptInput.value = exampleQuestion;
+  rawPromptInput.value = preset.prompt;
   rawPromptInput.setCustomValidity('');
   getOptionalFieldConfigs().forEach(({ enabled, input, label }) => {
     input.value = preset[label.toLowerCase()];
