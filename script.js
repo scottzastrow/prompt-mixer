@@ -1,6 +1,7 @@
 const form = document.getElementById('prompt-form');
 const rawPromptInput = document.getElementById('raw-prompt');
 const presetSelect = document.getElementById('preset-select');
+const clearButton = document.getElementById('clear-button');
 const presets = {
   one: {
     prompt: 'What should I pack for a day hike? Answer in one sentence.',
@@ -113,6 +114,14 @@ function clearOutputs() {
 
 form.addEventListener('input', clearOutputs);
 form.addEventListener('change', clearOutputs);
+
+clearButton.addEventListener('click', () => {
+  form.reset();
+  presetSelect.value = '';
+  rawPromptInput.setCustomValidity('');
+  clearOutputs();
+  rawPromptInput.focus();
+});
 
 presetSelect.addEventListener('change', () => {
   const preset = presets[presetSelect.value];

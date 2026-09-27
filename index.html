@@ -13,12 +13,15 @@
           <h1>Prompt Mixer</h1>
           <div class="preset-picker">
             <label for="preset-select">Examples</label>
-            <select id="preset-select" aria-label="Choose an example preset">
-              <option value="">Choose a preset</option>
-              <option value="one">Preset 1 · Day hike</option>
-              <option value="two">Preset 2 · Variables</option>
-              <option value="three">Preset 3 · Friendly reminder</option>
-            </select>
+            <div class="preset-controls">
+              <select id="preset-select" aria-label="Choose an example preset">
+                <option value="">Choose a preset</option>
+                <option value="one">Preset 1 · Day hike</option>
+                <option value="two">Preset 2 · Variables</option>
+                <option value="three">Preset 3 · Friendly reminder</option>
+              </select>
+              <button id="clear-button" type="button" aria-label="Clear all fields and results">Clear</button>
+            </div>
           </div>
         </div>
         <p>Choose a preset or write your own prompt. Generate the raw response, then check fields to compare.</p>
