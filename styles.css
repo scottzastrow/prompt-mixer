@@ -324,30 +324,6 @@ textarea:focus-visible {
   word-break: break-word;
 }
 
-.copy-button {
-  position: absolute;
-  right: 16px;
-  top: 54px;
-  border: 1px solid rgba(88, 85, 214, 0.35);
-  background: rgba(255, 255, 255, 0.7);
-  color: var(--primary);
-  border-radius: 8px;
-  padding: 8px 12px;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.copy-button:hover,
-.copy-button:focus-visible {
-  background: #fff;
-}
-
-.copy-button.is-copied {
-  background: #e9f9ef;
-  border-color: #8bd0a6;
-  color: #1d7c4d;
-}
 
 @media (max-width: 640px) {
   .header-row { flex-wrap: wrap; }
@@ -370,8 +346,4 @@ textarea:focus-visible {
     margin-top: 24px;
   }
 
-  .copy-button {
-    position: static;
-    margin-top: 10px;
-  }
 }
