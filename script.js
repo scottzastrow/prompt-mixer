@@ -23,7 +23,6 @@ const presets = {
   },
 };
 const outputText = document.getElementById('output-text');
-const copyButton = document.getElementById('copy-button');
 const generateButton = document.getElementById('generate-response');
 const responseSection = document.querySelector('.response-section');
 const responseStatus = document.getElementById('response-status');
@@ -82,8 +81,6 @@ function renderPrompt() {
 
   rawPromptInput.setCustomValidity('');
   outputText.textContent = assembledPrompt;
-  copyButton.classList.remove('is-copied');
-  copyButton.textContent = 'Copy';
   return assembledPrompt;
 }
 
@@ -108,8 +105,6 @@ function clearResponse() {
 function clearOutputs() {
   clearResponse();
   outputText.textContent = 'Ready to mix';
-  copyButton.classList.remove('is-copied');
-  copyButton.textContent = 'Copy';
 }
 
 form.addEventListener('input', clearOutputs);
@@ -171,32 +166,6 @@ generateButton.addEventListener('click', async () => {
       generateButton.textContent = 'Generate Response';
       responseSection.setAttribute('aria-busy', 'false');
     }
-  }
-});
-
-copyButton.addEventListener('click', async () => {
-  const text = outputText.textContent.trim();
-
-  if (!text || text === 'Ready to mix') {
-    return;
-  }
-
-  try {
-    await navigator.clipboard.writeText(text);
-    copyButton.textContent = 'Copied!';
-    copyButton.classList.add('is-copied');
-  } catch (error) {
-    const fallback = document.createElement('textarea');
-    fallback.value = text;
-    fallback.setAttribute('readonly', '');
-    fallback.style.position = 'fixed';
-    fallback.style.opacity = '0';
-    document.body.appendChild(fallback);
-    fallback.select();
-    document.execCommand('copy');
-    document.body.removeChild(fallback);
-    copyButton.textContent = 'Copied!';
-    copyButton.classList.add('is-copied');
   }
 });
 
