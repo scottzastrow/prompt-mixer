@@ -9,7 +9,18 @@
   <body>
     <main class="app-shell">
       <header class="header">
-        <h1>Prompt Mixer</h1>
+        <div class="header-row">
+          <h1>Prompt Mixer</h1>
+          <div class="preset-picker">
+            <label for="preset-select">Examples</label>
+            <select id="preset-select" aria-label="Choose an example preset">
+              <option value="">Choose a preset</option>
+              <option value="beginner">Beginner</option>
+              <option value="technical">Technical</option>
+              <option value="analogy">Analogy</option>
+            </select>
+          </div>
+        </div>
         <p>See how context and instructions change an AI response</p>
       </header>
 
@@ -27,7 +38,7 @@
         <section class="optional-field">
           <div class="toggle-row">
             <label class="checkbox-label">
-              <input id="include-context" type="checkbox" checked />
+              <input id="include-context" type="checkbox" />
               <span class="checkbox-box" aria-hidden="true"></span>
               <span>Context</span>
             </label>
@@ -38,7 +49,7 @@
         <section class="optional-field">
           <div class="toggle-row">
             <label class="checkbox-label">
-              <input id="include-role" type="checkbox" checked />
+              <input id="include-role" type="checkbox" />
               <span class="checkbox-box" aria-hidden="true"></span>
               <span>Role</span>
             </label>
@@ -49,7 +60,7 @@
         <section class="optional-field">
           <div class="toggle-row">
             <label class="checkbox-label">
-              <input id="include-constraints" type="checkbox" checked />
+              <input id="include-constraints" type="checkbox" />
               <span class="checkbox-box" aria-hidden="true"></span>
               <span>Constraints</span>
             </label>
