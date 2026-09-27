@@ -9,10 +9,10 @@ const presets = {
     constraints: 'Name three essentials in 18 words or fewer.',
   },
   two: {
-    prompt: 'In Python, what does print(sum([1, 2, 3])) display? Answer in one sentence.',
-    context: 'I know print(), but I am new to lists and sum().',
-    role: 'Act as a patient Python tutor.',
-    constraints: 'State the printed number and explain why in 18 words or fewer.',
+    prompt: 'What does this Java code print? int total = 0; for (int i = 1; i <= 3; i++) { total += i; } System.out.println(total); Answer in one sentence.',
+    context: 'I know variables but am learning how for loops add values.',
+    role: 'Act as a patient Java instructor.',
+    constraints: 'Give the exact output and briefly explain how total changes in 20 words or fewer.',
   },
   three: {
     prompt: 'Write me a reminder message. Answer in one sentence.',
