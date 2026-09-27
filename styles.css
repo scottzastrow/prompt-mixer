@@ -58,7 +58,32 @@ body {
   display: flex;
   flex-direction: column;
   gap: 5px;
-  min-width: 154px;
+  min-width: 240px;
+}
+
+.preset-controls {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+#clear-button {
+  border: 1px solid var(--stroke);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text);
+  padding: 9px 12px;
+  font: inherit;
+  cursor: pointer;
+}
+
+#clear-button:hover, #clear-button:focus-visible {
+  background: var(--primary-soft);
+}
+
+#clear-button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .preset-picker label {
@@ -68,7 +93,8 @@ body {
 }
 
 .preset-picker select {
-  width: 100%;
+  min-width: 0;
+  flex: 1;
   padding: 9px 10px;
   border: 1px solid var(--stroke);
   border-radius: 8px;
