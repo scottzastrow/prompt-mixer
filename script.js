@@ -121,7 +121,7 @@ presetSelect.addEventListener('change', () => {
   rawPromptInput.setCustomValidity('');
   getOptionalFieldConfigs().forEach(({ enabled, input, label }) => {
     input.value = preset[label.toLowerCase()];
-    enabled.checked = true;
+    enabled.checked = false;
   });
   clearOutputs();
   rawPromptInput.focus();
