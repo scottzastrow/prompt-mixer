@@ -26,8 +26,8 @@ The raw prompt is required. Context, Role, and Constraints are optional and incl
 4. Copy copies exactly what Show Mix displays.
 5. Loading or editing the page does not expose an API key in HTML or JavaScript.
 6. An unavailable API returns a visible error without losing the inputs.
-7. HTTPS, authentication, local-only app port, and a live response work on the production hostname.
-8. Limits distinguish client IPs through the trusted local Nginx proxy; no site password is removed until the limit state and blocked-call behavior pass on the host.
+7. HTTPS, anonymous page access, local-only app port, and a live response work on the production hostname.
+8. Limits distinguish client IPs through the trusted local Nginx proxy; blocked requests return 429 without contacting OpenAI.
 
 ## Immediate tasks
 
