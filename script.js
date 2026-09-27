@@ -9,7 +9,7 @@ const presets = {
     constraints: 'Name three essentials in 18 words or fewer.',
   },
   two: {
-    prompt: 'What does this Python code print? numbers = [1, 2, 3]; print(sum(numbers)). Answer in one sentence.',
+    prompt: 'In Python, what does print(sum([1, 2, 3])) display? Answer in one sentence.',
     context: 'I know print(), but I am new to lists and sum().',
     role: 'Act as a patient Python tutor.',
     constraints: 'State the printed number and explain why in 18 words or fewer.',
