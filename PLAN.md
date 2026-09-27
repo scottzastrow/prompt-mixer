@@ -8,7 +8,7 @@ Build one screen that shows how optional prompt instructions affect the text sen
 
 ## Components
 
-1. **Browser:** Raw, Context, Role, and Constraints inputs; checkboxes; Show Mix, Copy, and Generate Response; response/error display.
+1. **Browser:** Raw, Context, Role, and Constraints inputs; checkboxes; Show Mix and Generate Response; response/error display.
 2. **Server:** `POST /api/generate` validates the prompt, calls OpenAI, and returns only the generated text. It also serves the static files and `GET /health`.
 3. **Deployment:** existing Lightsail Ubuntu host, separate Prompt Mixer service on `127.0.0.1:8081`, and its own Nginx virtual host. EDI remains on `127.0.0.1:8080`.
 4. **Access:** finish HTTPS before adding basic authentication and enabling the paid API endpoint. Keep the Prompt Mixer key in a protected service environment file, separate from EDI.
