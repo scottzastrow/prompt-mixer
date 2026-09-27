@@ -19,7 +19,7 @@ Run `npm test` for a local server check with a simulated OpenAI response. A live
 
 ## Deployment
 
-The deployment procedure for `promptmixer.vergotek.com` is in [DEPLOY.md](DEPLOY.md). Its initial public release requires HTTPS and access control at Nginx because anonymous calls would spend the owner's API credits. Keep the key in a private service environment file on the host.
+The deployment procedure for `promptmixer.vergotek.com` is in [DEPLOY.md](DEPLOY.md). The current site uses Nginx basic authentication. Before opening it, deploy and verify server-side generation limits of 100 requests/minute/IP, 200 requests/UTC day/IP, and 1,000 requests/UTC day site-wide. Counts survive restarts in a private file. Show Mix and Copy remain available after a generation limit. These limits reduce accidental or automated usage but do not identify individual people or guarantee a spending cap. Keep the key in a private service environment file on the host.
 
 ## Scope
 
