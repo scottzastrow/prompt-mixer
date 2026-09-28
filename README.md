@@ -1,6 +1,6 @@
 # Prompt Mixer
 
-Prompt Mixer lets you start with a raw prompt, toggle Context, Role, and Constraints, inspect the assembled prompt, and generate a real AI response. Change one input and generate again to see the effect. The app stores no accounts, prompts, or responses.
+Prompt Mixer lets you start with a raw prompt, toggle Context, Role, and Constraints, inspect the assembled prompt, and generate a real AI response. Change one input and generate again to see the effect. The app does not use user accounts, but successful prompts and AI responses are logged for experiment history.
 
 ## Run locally
 
