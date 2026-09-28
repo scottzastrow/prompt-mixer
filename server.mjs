@@ -2,12 +2,32 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import mysql from 'mysql2/promise';
 import { RequestLimits } from './limits.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const port = Number(process.env.PORT || 8081);
 const host = process.env.HOST || '127.0.0.1';
 const model = process.env.OPENAI_MODEL || 'gpt-5-mini';
+
+async function logInteraction(prompt, response) {
+  const connection = await mysql.createConnection({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+  });
+
+  try {
+    await connection.execute(
+      'INSERT INTO prompt_log (model, prompt, response) VALUES (?, ?, ?)',
+      [model, prompt, response]
+    );
+  } finally {
+    await connection.end();
+  }
+}
+
 let limits;
 function getLimits() {
   const path = process.env.LIMIT_STATE_FILE || join(root, '.limit-state.json');
@@ -114,6 +134,12 @@ async function generate(req, res) {
       send(res, 502, { error: 'The AI returned no text. Please try again.' });
       return;
     }
+    try {
+      await logInteraction(prompt, output);
+    } catch (error) {
+      console.error('Could not log AI interaction:', error.name);
+    }
+
     send(res, 200, { response: output });
   } catch (error) {
     console.error('OpenAI request failed:', error.name);
