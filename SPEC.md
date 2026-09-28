@@ -8,6 +8,8 @@ Make the effect of prompt context visible in both the assembled instructions and
 
 The raw prompt is required. Context, Role, and Constraints are optional and included only when their checkboxes are selected and their fields are nonempty. Show Mix displays the assembled text. Generate Response sends the current assembled text to the server and displays an AI answer. Changing any input clears the old answer so it cannot be confused with the current mix.
 
+Each successful AI response is also recorded in the experiment log with its timestamp, model, assembled prompt, and response. Logging is secondary to response generation: a database failure must not prevent a successful AI response from being displayed to the user.
+
 ## Constraints
 
 - No database or user account in this iteration.

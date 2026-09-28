@@ -18,6 +18,8 @@ Build one screen that shows how optional prompt instructions affect the text sen
 - **Iteration 1 (built):** Assemble and copy a prompt. Verify that each checkbox includes or omits its field.
 - **Iteration 2 (built):** Generate a real AI answer. Verify required input, server validation, API response handling, and that the key does not appear in public files. Two local tests passed and a live answer was verified.
 - **Iteration 3 (deployed):** HTTPS, the private Node service, and basic authentication are in place. Live raw and contextual answers worked; EDI remained available. Simulated certificate renewals succeeded for both sites.
+- **Iteration 4 (built):** Add a persistent experiment log. Successful AI interactions are stored in the Bluehost MySQL database `vergotek_promptmixer` with timestamp, model, prompt, and response. Database logging is non-fatal: if persistence fails, the AI response is still returned to the user. The application opens a short-lived database connection for each write because the hosted MySQL server has a 10-second idle timeout.
+- **Later experiment:** Add a History interface so stored interactions can be reviewed without direct database access.
 - **Later experiment:** Compare Raw and Mixed answers side by side. Add this to the spec before implementation; it is not part of the current deployment gate.
 
 ## Known dependency
