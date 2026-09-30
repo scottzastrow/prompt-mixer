@@ -49,6 +49,25 @@ function getOptionalFieldConfigs() {
   ];
 }
 
+getOptionalFieldConfigs().forEach(({ enabled, input }) => {
+  let manuallyUnchecked = false;
+
+  enabled.addEventListener('change', () => {
+    manuallyUnchecked = !enabled.checked && input.value.trim() !== '';
+  });
+
+  input.addEventListener('input', () => {
+    const hasText = input.value.trim() !== '';
+
+    if (!hasText) {
+      enabled.checked = false;
+      manuallyUnchecked = false;
+    } else if (!manuallyUnchecked) {
+      enabled.checked = true;
+    }
+  });
+});
+
 function buildPrompt() {
   const rawPrompt = rawPromptInput.value.trim();
 
