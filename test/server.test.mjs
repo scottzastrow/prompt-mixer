@@ -52,6 +52,8 @@ test('uses server side key and returns model output without exposing credentials
     assert.equal(result.status, 200);
     assert.deepEqual(await result.json(), { response: 'A concise explanation.' });
     assert.equal(submitted.input, 'Explain recursion.\n\nContext: beginner');
+    assert.equal(submitted.max_output_tokens, 3000);
+    assert.deepEqual(submitted.reasoning, { effort: 'low' });
     assert.equal(submitted.store, false);
   } finally {
     server.close();

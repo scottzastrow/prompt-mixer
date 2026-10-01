@@ -133,7 +133,13 @@ async function generate(req, res) {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
       },
-      body: JSON.stringify({ model, input: prompt, max_output_tokens: 800, store: false }),
+      body: JSON.stringify({
+        model,
+        input: prompt,
+        max_output_tokens: 3000,
+        reasoning: { effort: 'low' },
+        store: false,
+      }),
       signal: AbortSignal.timeout(60000),
     });
     if (!response.ok) {
