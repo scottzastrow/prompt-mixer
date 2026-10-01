@@ -49,11 +49,25 @@ function getOptionalFieldConfigs() {
   ];
 }
 
+function updateOptionalCheckbox({ enabled, input }) {
+  const hasText = input.value.trim() !== '';
+
+  if (!hasText) {
+    enabled.checked = false;
+    return;
+  }
+
+  enabled.checked = true;
+}
+
 getOptionalFieldConfigs().forEach(({ enabled, input }) => {
   let manuallyUnchecked = false;
 
   enabled.addEventListener('change', () => {
-    manuallyUnchecked = !enabled.checked && input.value.trim() !== '';
+    const hasText = input.value.trim() !== '';
+    manuallyUnchecked = !enabled.checked && hasText;
+    clearResponse();
+    renderPrompt();
   });
 
   input.addEventListener('input', () => {
@@ -62,9 +76,15 @@ getOptionalFieldConfigs().forEach(({ enabled, input }) => {
     if (!hasText) {
       enabled.checked = false;
       manuallyUnchecked = false;
-    } else if (!manuallyUnchecked) {
+    } else if (manuallyUnchecked) {
       enabled.checked = true;
+      manuallyUnchecked = false;
+    } else {
+      updateOptionalCheckbox({ enabled, input });
     }
+
+    clearResponse();
+    renderPrompt();
   });
 });
 
@@ -92,9 +112,8 @@ function renderPrompt() {
   const assembledPrompt = buildPrompt();
 
   if (!assembledPrompt) {
-    rawPromptInput.focus();
-    rawPromptInput.setCustomValidity('Please enter a raw prompt.');
-    rawPromptInput.reportValidity();
+    outputText.textContent = 'Ready to mix';
+    rawPromptInput.setCustomValidity('');
     return null;
   }
 
@@ -126,8 +145,14 @@ function clearOutputs() {
   outputText.textContent = 'Ready to mix';
 }
 
-form.addEventListener('input', clearOutputs);
-form.addEventListener('change', clearOutputs);
+form.addEventListener('input', () => {
+  clearResponse();
+  renderPrompt();
+});
+form.addEventListener('change', () => {
+  clearResponse();
+  renderPrompt();
+});
 
 clearButton.addEventListener('click', () => {
   form.reset();
@@ -140,19 +165,28 @@ clearButton.addEventListener('click', () => {
 presetSelect.addEventListener('change', () => {
   const preset = presets[presetSelect.value];
   if (!preset) return;
+
   rawPromptInput.value = preset.prompt;
   rawPromptInput.setCustomValidity('');
   getOptionalFieldConfigs().forEach(({ enabled, input, label }) => {
-    input.value = preset[label.toLowerCase()];
-    enabled.checked = false;
+    const value = preset[label.toLowerCase()] || '';
+    input.value = value;
+    enabled.checked = value.trim() !== '';
   });
-  clearOutputs();
+
+  clearResponse();
+  renderPrompt();
   rawPromptInput.focus();
 });
 
 generateButton.addEventListener('click', async () => {
   const prompt = renderPrompt();
-  if (!prompt) return;
+  if (!prompt) {
+    rawPromptInput.focus();
+    rawPromptInput.setCustomValidity('Please enter a raw prompt.');
+    rawPromptInput.reportValidity();
+    return;
+  }
 
   const request = new AbortController();
   activeRequest = request;
