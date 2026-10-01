@@ -250,19 +250,24 @@ textarea:focus-visible {
 
 .actions {
   display: flex;
+  justify-content: flex-start;
   gap: 12px;
   margin-top: 8px;
 }
 
-.actions button { flex: 1; margin-top: 0; }
 .generate-button {
+  width: auto;
+  align-self: flex-start;
   border: 1px solid var(--primary);
   border-radius: 10px;
   background: #fff;
   color: var(--primary);
   font-size: 17px;
   font-weight: 700;
+  line-height: 1.3;
   cursor: pointer;
+  min-height: 44px;
+  padding: 10px 16px;
 }
 .generate-button:hover, .generate-button:focus-visible { background: var(--primary-soft); }
 .generate-button:disabled { opacity: .6; cursor: wait; }
@@ -281,8 +286,13 @@ textarea:focus-visible {
 @media (max-width: 600px) {
   body { padding: 12px; }
   .app-shell { padding: 22px; }
-  .actions { flex-direction: column; }
-  .actions button { min-height: 48px; }
+  .actions {
+    justify-content: flex-start;
+  }
+  .generate-button {
+    min-height: 44px;
+    width: auto;
+  }
 }
 
 .show-mix-button:hover,

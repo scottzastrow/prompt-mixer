@@ -1,6 +1,6 @@
 # Prompt Mixer
 
-Prompt Mixer lets you start with a raw prompt, toggle Context, Role, and Constraints, inspect the assembled prompt, and generate a real AI response. Change one input and generate again to see the effect. The app does not use user accounts, but successful prompts and AI responses are logged for experiment history.
+Prompt Mixer lets you start with a raw prompt, toggle Context, Role, and Constraints, inspect the live assembled prompt, and generate a real AI response. Change one input and generate again to see the effect. The app does not use user accounts, but successful prompts and AI responses are logged for experiment history.
 **Live site:** https://promptmixer.vergotek.com
 
 ## Run locally
@@ -20,7 +20,7 @@ Run `npm test` for a local server check with a simulated OpenAI response. A live
 
 ## Deployment
 
-The deployment procedure for `promptmixer.vergotek.com` is in [DEPLOY.md](DEPLOY.md). The public site uses server-side generation limits of 100 requests/minute/IP, 200 requests/UTC day/IP, and 1,000 requests/UTC day site-wide. Counts survive restarts in a private file. Show Mix remains available after a generation limit. These limits reduce accidental or automated usage but do not identify individual people or guarantee a spending cap. Keep the key in a private service environment file on the host.
+The deployment procedure for `promptmixer.vergotek.com` is in [DEPLOY.md](DEPLOY.md). The public site uses server-side generation limits of 100 requests/minute/IP, 200 requests/UTC day/IP, and 1,000 requests/UTC day site-wide. Counts survive restarts in a private file. The live preview remains available after a generation limit. These limits reduce accidental or automated usage but do not identify individual people or guarantee a spending cap. Keep the key in a private service environment file on the host.
 
 ## Scope
 

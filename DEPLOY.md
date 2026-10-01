@@ -44,7 +44,7 @@ location / {
 ```
 
 7. Run `sudo nginx -t` and reload Nginx. The `sudo certbot renew --dry-run` check succeeded for both Prompt Mixer and EDI on September 26, 2026. Ensure the HTTP site redirects to HTTPS, rather than presenting a password prompt over HTTP.
-8. At `https://promptmixer.vergotek.com`, verify anonymous access loads the page, Show Mix reflects checked fields, and Generate Response returns a real answer. Check `journalctl -u promptmixer` for server errors without printing the API key. Also verify `devedi.vergotek.com` still works.
+8. At `https://promptmixer.vergotek.com`, verify anonymous access loads the page, the live prompt preview reflects the checked fields, and Generate Response returns a real answer. Check `journalctl -u promptmixer` for server errors without printing the API key. Also verify `devedi.vergotek.com` still works.
 
 For updates, pull a tested commit in `/opt/promptmixer-app`, run `npm test`, restart only `promptmixer`, and repeat the smoke test. The service loads secrets from `/etc/promptmixer/promptmixer.env`; never copy that file into Git. Preserve the prior commit for rollback. The previous Nginx site was backed up as `/etc/nginx/sites-available/promptmixer.before-ai`. A project spending alert is not necessarily a hard cap.
 

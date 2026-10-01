@@ -5,8 +5,8 @@ This iteration focuses on the revised prompt-mixer behavior in [SPEC.md](SPEC.md
 ## Core app behavior
 
 - [x] T1: Build the Raw, Context, Role, and Constraints inputs with the optional checkbox logic. The Raw prompt remains required.
-- [x] T2: Build Show Mix and Copy so the assembled prompt matches the current checked inputs and omits blank or unchecked optional fields.
-- [x] T3: Ensure changing any input clears the prior AI answer so it cannot be confused with the current prompt.
+- [x] T2: Replace the old Show Mix flow with a live preview that updates immediately and omits blank or unchecked optional fields.
+- [x] T3: Keep explicit unchecks stable until the field is edited or checked again, and clear the prior AI answer when the prompt or selections change.
 
 ## Server and AI generation
 
