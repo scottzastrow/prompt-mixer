@@ -62,6 +62,112 @@ test('uses server side key and returns model output without exposing credentials
   }
 });
 
+test('logs empty OpenAI output metadata without exposing prompt or content', async () => {
+  process.env.OPENAI_API_KEY = 'test-only-secret';
+  process.env.LIMIT_STATE_FILE = join(tmpdir(), `prompt-mixer-empty-${Date.now()}.json`);
+  const oldFetch = globalThis.fetch;
+  const oldError = console.error;
+  const logged = [];
+  console.error = (...args) => logged.push(args);
+
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    id: 'resp_empty_123',
+    status: 'completed',
+    incomplete_details: null,
+    error: null,
+    usage: { input_tokens: 5, output_tokens: 0 },
+    output: [],
+  }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json', 'x-request-id': 'req-empty-456' },
+  });
+
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const result = await realFetch(`http://127.0.0.1:${server.address().port}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: 'Explain recursion.' }),
+    });
+
+    assert.equal(result.status, 502);
+    assert.deepEqual(await result.json(), { error: 'The AI returned no text. Please try again.' });
+
+    const diagnostic = logged.find(args => args.some(arg => arg && typeof arg === 'object' && arg.id === 'resp_empty_123'));
+    assert.ok(diagnostic, 'server should log empty output metadata');
+    const details = diagnostic.find(arg => arg && typeof arg === 'object' && 'id' in arg);
+    assert.deepEqual(details.id, 'resp_empty_123');
+    assert.deepEqual(details.xRequestId, 'req-empty-456');
+    assert.equal(details.http_status, 200);
+    assert.equal(details.response_status, 'completed');
+    assert.deepEqual(details.output_item_types, []);
+    assert.ok(!JSON.stringify(details).includes('Explain recursion'));
+    assert.ok(!JSON.stringify(details).includes('test-only-secret'));
+  } finally {
+    server.close();
+    console.error = oldError;
+    globalThis.fetch = oldFetch;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.LIMIT_STATE_FILE;
+  }
+});
+
+test('logs incomplete OpenAI output metadata when partial text still exists', async () => {
+  process.env.OPENAI_API_KEY = 'test-only-secret';
+  process.env.LIMIT_STATE_FILE = join(tmpdir(), `prompt-mixer-partial-${Date.now()}.json`);
+  const oldFetch = globalThis.fetch;
+  const oldError = console.error;
+  const logged = [];
+  console.error = (...args) => logged.push(args);
+
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    id: 'resp_partial_123',
+    status: 'incomplete',
+    incomplete_details: { reason: 'max_output_tokens' },
+    error: { message: 'incomplete response' },
+    usage: { input_tokens: 7, output_tokens: 3 },
+    output: [{
+      type: 'message',
+      content: [{ type: 'output_text', text: 'A partial answer.' }],
+    }, { type: 'reasoning' }],
+  }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json', 'x-request-id': 'req-partial-456' },
+  });
+
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const result = await realFetch(`http://127.0.0.1:${server.address().port}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: 'Explain recursion.' }),
+    });
+
+    assert.equal(result.status, 200);
+    assert.deepEqual(await result.json(), { response: 'A partial answer.' });
+
+    const diagnostic = logged.find(args => args.some(arg => arg && typeof arg === 'object' && arg.id === 'resp_partial_123'));
+    assert.ok(diagnostic, 'server should log incomplete metadata even with partial output text');
+    const details = diagnostic.find(arg => arg && typeof arg === 'object' && 'id' in arg);
+    assert.deepEqual(details.id, 'resp_partial_123');
+    assert.deepEqual(details.xRequestId, 'req-partial-456');
+    assert.equal(details.http_status, 200);
+    assert.equal(details.response_status, 'incomplete');
+    assert.deepEqual(details.incomplete_details, { reason: 'max_output_tokens' });
+    assert.deepEqual(details.error, { message: 'incomplete response' });
+    assert.deepEqual(details.usage, { input_tokens: 7, output_tokens: 3 });
+    assert.deepEqual(details.output_item_types, ['message', 'reasoning']);
+    assert.ok(!JSON.stringify(details).includes('Explain recursion'));
+    assert.ok(!JSON.stringify(details).includes('test-only-secret'));
+  } finally {
+    server.close();
+    console.error = oldError;
+    globalThis.fetch = oldFetch;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.LIMIT_STATE_FILE;
+  }
+});
+
 test('limits persist across restarts, distinguish IPs, and block before the paid call', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'prompt-mixer-limit-'));
   const path = join(dir, 'limits.json');

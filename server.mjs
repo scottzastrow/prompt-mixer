@@ -62,6 +62,23 @@ function send(res, status, data, extraHeaders = {}) {
   res.end(JSON.stringify(data));
 }
 
+function logIncompleteOpenAIResponse(response, data) {
+  const outputItemTypes = Array.isArray(data?.output)
+    ? data.output.map(item => item?.type).filter(Boolean)
+    : [];
+
+  console.error('OpenAI response did not produce usable text output.', {
+    id: data?.id ?? null,
+    xRequestId: response.headers.get('x-request-id') ?? null,
+    http_status: response.status,
+    response_status: data?.status ?? null,
+    incomplete_details: data?.incomplete_details ?? null,
+    error: data?.error ?? null,
+    usage: data?.usage ?? null,
+    output_item_types: outputItemTypes,
+  });
+}
+
 async function generate(req, res) {
   if (!req.headers['content-type']?.toLowerCase().startsWith('application/json')) {
     send(res, 415, { error: 'Send a JSON request.' });
@@ -130,6 +147,11 @@ async function generate(req, res) {
     const output = data.output?.flatMap(item => item.content || [])
       .filter(item => item.type === 'output_text')
       .map(item => item.text).join('\n').trim();
+
+    if (!output || data.status === 'incomplete') {
+      logIncompleteOpenAIResponse(response, data);
+    }
+
     if (!output) {
       send(res, 502, { error: 'The AI returned no text. Please try again.' });
       return;
