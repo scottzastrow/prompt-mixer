@@ -14,7 +14,8 @@ This iteration focuses on the revised prompt-mixer behavior in [SPEC.md](SPEC.md
 - [x] T5: Connect Generate Response to the current assembled prompt and show loading, result, and error states.
 - [x] T6: Verify locally that a simulated API response works and that public files do not expose the API key.
 - [x] T7: Run a live API request with the separate Prompt Mixer project key and verify the returned answer corresponds to the selected fields.
-- [ ] T8: Diagnose incomplete OpenAI replies by logging only response metadata (id, `x-request-id`, status, `incomplete_details`, `error`, `usage`, and output item types) and never logging prompts, credentials, or response contents.
+- [x] T8: Diagnose incomplete OpenAI replies by logging only response metadata (id, `x-request-id`, status, `incomplete_details`, `error`, `usage`, and output item types) and never logging prompts, credentials, or response contents.
+- [ ] T9: Update the Responses API request to use `reasoning: { effort: "low" }` and `max_output_tokens: 3000` after confirming the live `response_status=incomplete` / `max_output_tokens` diagnosis, while keeping the existing rate limits, diagnostics, database logging, and prompt constraints intact.
 
 ## Deployment and production checks
 

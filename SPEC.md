@@ -12,6 +12,8 @@ Each successful AI response is also recorded in the experiment log with its time
 
 Observed issue: some OpenAI responses can return an incomplete payload with a successful HTTP status but no `output_text` content. In those cases, the server must emit a diagnostic log containing only the OpenAI response ID, the `x-request-id` header value, HTTP status, `incomplete_details`, `error`, `usage`, and output item types. It must not log credentials, prompts, or response contents in these diagnostics.
 
+Confirmed live diagnosis: `response_status=incomplete`, `incomplete_details.reason=max_output_tokens`, and all 768 output tokens were consumed by reasoning with no visible answer. The server request must therefore use `reasoning: { effort: "low" }` and increase `max_output_tokens` from 800 to 3000 while preserving the existing user-selected prompt constraints and without adding automatic retries.
+
 ## Constraints
 
 - No database or user account in this iteration.
