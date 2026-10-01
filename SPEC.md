@@ -10,6 +10,8 @@ The raw prompt is required. Context, Role, and Constraints are optional and are 
 
 Each successful AI response is also recorded in the experiment log with its timestamp, model, assembled prompt, and response. Logging is secondary to response generation: a database failure must not prevent a successful AI response from being displayed to the user.
 
+Observed issue: some OpenAI responses can return an incomplete payload with a successful HTTP status but no `output_text` content. In those cases, the server must emit a diagnostic log containing only the OpenAI response ID, the `x-request-id` header value, HTTP status, `incomplete_details`, `error`, `usage`, and output item types. It must not log credentials, prompts, or response contents in these diagnostics.
+
 ## Constraints
 
 - No database or user account in this iteration.
