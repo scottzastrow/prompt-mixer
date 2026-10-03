@@ -307,12 +307,13 @@ function createResponseCards(prompts) {
 
     responseContent.append(answerLabel, status, answer, toggle);
     element.append(heading, promptDetails, responseContent);
-    return { element, status, answer, toggle };
+    return { element, status, answer, toggle, lastStatus: 'waiting' };
   });
 }
 
 function updateResponseCards(cards, states) {
-  cards.forEach(({ element, status, answer, toggle }, index) => {
+  cards.forEach((card, index) => {
+    const { element, status, answer, toggle } = card;
     const state = states[index];
     if (!state) return;
 
@@ -321,14 +322,18 @@ function updateResponseCards(cards, states) {
       status.textContent = 'Generating…';
     } else if (state.status === 'success') {
       status.textContent = 'Response generated.';
-      answer.textContent = state.response;
-      answer.classList.add('is-collapsed');
-      toggle.textContent = 'Show more';
-      toggle.setAttribute('aria-expanded', 'false');
-      toggle.hidden = answer.scrollHeight <= answer.clientHeight + 1;
+      if (card.lastStatus !== 'success') {
+        answer.textContent = state.response;
+        answer.classList.add('is-collapsed');
+        toggle.textContent = 'Show more';
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.hidden = answer.scrollHeight <= answer.clientHeight + 1;
+      }
     } else if (state.status === 'error') {
       status.textContent = state.error;
     }
+
+    card.lastStatus = state.status;
   });
 }
 

@@ -43,7 +43,9 @@ class FakeElement {
   }
 
   trigger(type) {
-    for (const listener of this.listeners.get(type) || []) listener({ preventDefault() {} });
+    let result;
+    for (const listener of this.listeners.get(type) || []) result = listener({ preventDefault() {} });
+    return result;
   }
 
   setAttribute(name, value) { this.attributes[name] = value; }
@@ -78,10 +80,9 @@ test('renders response states below Response and hides/restores the prompt previ
     createElement: tagName => new FakeElement(tagName),
   };
 
-  let resolveFetch;
-  let fetchResult = { ok: true, status: 200, json: async () => ({ response: 'Successful answer.' }) };
+  const fetchResolvers = [];
   globalThis.fetch = () => new Promise(resolve => {
-    resolveFetch = () => resolve(fetchResult);
+    fetchResolvers.push(result => resolve(result));
   });
 
   try {
@@ -90,7 +91,11 @@ test('renders response states below Response and hides/restores the prompt previ
     const run = () => generate.trigger('click');
 
     elements.get('raw-prompt').value = 'Explain tides.';
-    run();
+    elements.get('context-input').value = 'Near the coast.';
+    elements.get('include-context').checked = true;
+    elements.get('role-input').value = 'A science teacher.';
+    elements.get('include-role').checked = true;
+    const generation = run();
     assert.equal(outputSection.hidden, true, 'a valid run hides the combined-prompt preview');
 
     const card = elements.get('response-cards').children[0];
@@ -104,23 +109,42 @@ test('renders response states below Response and hides/restores the prompt previ
     assert.equal(card.children.indexOf(exactPrompt) < card.children.indexOf(responseContent), true);
     assert.equal(responseContent.children.indexOf(status), responseContent.children.indexOf(responseHeading) + 1);
 
-    resolveFetch();
+    fetchResolvers.shift()({ ok: true, status: 200, json: async () => ({ response: 'Raw answer.' }) });
     await new Promise(resolve => setImmediate(resolve));
     await new Promise(resolve => setImmediate(resolve));
-    assert.equal(answer.textContent, 'Successful answer.');
-    assert.equal(toggle.hidden, false);
-    assert.equal(toggle.textContent, 'Show more');
+    assert.equal(status.textContent, 'Response generated.');
+    assert.equal(elements.get('response-cards').children[1].children[2].children[1].textContent, 'Generating…');
 
+    toggle.trigger('click');
+    assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+    assert.equal(answer.classes.has('is-collapsed'), false);
+
+    fetchResolvers.shift()({ ok: true, status: 200, json: async () => ({ response: 'Context answer.' }) });
+    await new Promise(resolve => setImmediate(resolve));
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(elements.get('response-cards').children[2].children[2].children[1].textContent, 'Generating…');
+    assert.equal(toggle.getAttribute('aria-expanded'), 'true', 'later loading preserves the expanded answer');
+
+    fetchResolvers.shift()({ ok: true, status: 200, json: async () => ({ response: 'Role answer.' }) });
+    await generation;
+    assert.equal(answer.textContent, 'Raw answer.');
+    assert.equal(toggle.getAttribute('aria-expanded'), 'true', 'later success preserves the expanded answer');
+    assert.equal(toggle.textContent, 'Show less');
+    assert.equal(answer.classes.has('is-collapsed'), false);
+    assert.equal(toggle.hidden, false);
+
+    elements.get('context-input').value = '';
+    elements.get('include-context').checked = false;
+    elements.get('role-input').value = '';
+    elements.get('include-role').checked = false;
     form.trigger('input');
     assert.equal(outputSection.hidden, false, 'input changes restore the live preview');
     assert.equal(elements.get('response-cards').children.length, 0);
 
     outputSection.hidden = true;
-    fetchResult = { ok: false, status: 502, json: async () => ({ error: 'Upstream failed.' }) };
-    run();
-    resolveFetch();
-    await new Promise(resolve => setImmediate(resolve));
-    await new Promise(resolve => setImmediate(resolve));
+    const errorGeneration = run();
+    fetchResolvers.shift()({ ok: false, status: 502, json: async () => ({ error: 'Upstream failed.' }) });
+    await errorGeneration;
     const failedResponse = elements.get('response-cards').children[0].children[2];
     assert.equal(failedResponse.children[0].textContent, 'Response');
     assert.equal(failedResponse.children[1].textContent, 'Upstream failed.');
