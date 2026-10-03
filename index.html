@@ -71,9 +71,6 @@
           <textarea id="constraints-input" name="constraints" placeholder="Define constraints or style guidance"></textarea>
         </section>
 
-        <div class="actions">
-          <button id="generate-response" type="button" class="generate-button">Generate Response</button>
-        </div>
       </form>
 
       <section class="output-section" aria-live="polite">
@@ -82,13 +79,16 @@
           <p id="output-text">Ready to mix</p>
         </div>
       </section>
+      <div class="actions">
+        <button id="generate-response" type="button" class="generate-button">Generate Response</button>
+      </div>
       <section class="response-section" aria-live="polite" aria-busy="false">
-        <h2>AI response</h2>
+        <h2>Response comparison</h2>
         <p id="response-status" role="status">Generate a response to compare the effect of your selected instructions.</p>
-        <div id="response-text" class="response-box" hidden></div>
+        <div id="response-cards" class="response-cards" hidden></div>
       </section>
     </main>
 
-    <script src="script.js"></script>
+    <script type="module" src="script.js"></script>
   </body>
 </html>

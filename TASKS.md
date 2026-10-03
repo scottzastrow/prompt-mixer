@@ -1,6 +1,6 @@
 # Prompt Mixer — tasks for this iteration
 
-This iteration focuses on the revised prompt-mixer behavior in [SPEC.md](SPEC.md) and the implementation plan in [PLAN.md](PLAN.md). Completed work is checked. Deployment and live API generation are recorded below. The production app, shared-host smoke checks, and simulated certificate renewals passed.
+Earlier iterations and deployment are recorded below. The current iteration implements cumulative response comparison from [SPEC.md](SPEC.md) and [PLAN.md](PLAN.md); its task status is tracked separately here.
 
 ## Core app behavior
 
@@ -15,7 +15,16 @@ This iteration focuses on the revised prompt-mixer behavior in [SPEC.md](SPEC.md
 - [x] T6: Verify locally that a simulated API response works and that public files do not expose the API key.
 - [x] T7: Run a live API request with the separate Prompt Mixer project key and verify the returned answer corresponds to the selected fields.
 - [x] T8: Diagnose incomplete OpenAI replies by logging only response metadata (id, `x-request-id`, status, `incomplete_details`, `error`, `usage`, and output item types) and never logging prompts, credentials, or response contents.
-- [ ] T9: Update the Responses API request to use `reasoning: { effort: "low" }` and `max_output_tokens: 3000` after confirming the live `response_status=incomplete` / `max_output_tokens` diagnosis, while keeping the existing rate limits, diagnostics, database logging, and prompt constraints intact.
+- [x] T9: Update the Responses API request to use `reasoning: { effort: "low" }` and `max_output_tokens: 3000` after confirming the live `response_status=incomplete` / `max_output_tokens` diagnosis, while keeping the existing rate limits, diagnostics, database logging, and prompt constraints intact.
+
+## Iteration 5 — cumulative response comparison
+
+- [x] I5-T1: Generate a raw-only request, then cumulative requests for selected, nonempty optional fields in Context, Role, Constraints order; keep the button label “Generate Response”.
+- [x] I5-T2: Render one clearly labeled card per request with its exact prompt, independent loading/success/error status, and compact accessible Show more / Show less answer controls.
+- [x] I5-T3: Keep successful answers after another request fails; stop sending requests after a rate-limit response and continue counting each sent request through the existing server limits and database logger.
+- [x] I5-T4: Prevent duplicate runs and cancel/ignore stale work after field or checkbox edits, preset changes, or Clear.
+- [x] I5-T5: Add focused automated tests for cumulative prompt selection, card/run behavior, cancellation, failure preservation, and rate-limit stopping; run the full suite.
+- [ ] I5-T6: Manually verify keyboard accessibility, responsive card layout, live combined-prompt preview, and production-only behaviors that cannot be established by local tests.
 
 ## Deployment and production checks
 
