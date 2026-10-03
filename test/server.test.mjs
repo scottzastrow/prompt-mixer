@@ -16,6 +16,11 @@ test('serves the UI and rejects invalid input without calling OpenAI', async () 
     assert.equal(page.status, 200);
     assert.match(await page.text(), /Generate Response/);
 
+    const comparisonModule = await realFetch(`${base}/comparison.mjs`);
+    assert.equal(comparisonModule.status, 200);
+    assert.match(comparisonModule.headers.get('Content-Type'), /javascript/);
+    assert.match(await comparisonModule.text(), /buildComparisonPrompts/);
+
     const invalid = await realFetch(`${base}/api/generate`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt: '' }),

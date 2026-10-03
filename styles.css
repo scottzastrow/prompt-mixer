@@ -252,7 +252,7 @@ textarea:focus-visible {
   display: flex;
   justify-content: flex-start;
   gap: 12px;
-  margin-top: 8px;
+  margin: 2rem 0;
 }
 
 .generate-button {
@@ -274,15 +274,26 @@ textarea:focus-visible {
 .response-section { margin-top: 26px; }
 .response-section h2 { font-size: 17px; margin-bottom: 10px; }
 #response-status { color: var(--muted); font-size: 14px; }
-.response-box {
+.response-cards { display: grid; gap: 12px; }
+.response-card {
+  min-width: 0;
   padding: 16px;
   border: 1px solid var(--stroke);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--bg);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  line-height: 1.55;
 }
+.response-card h3 { margin: 0 0 8px; font-size: 16px; }
+.card-response { margin-top: 14px; }
+.card-response h4 { margin: 0 0 6px; font-size: 14px; }
+.card-status { min-height: 1.4em; margin: 0 0 10px; color: var(--muted); font-size: 13px; }
+.exact-prompt { border-top: 1px solid var(--stroke); border-bottom: 1px solid var(--stroke); padding: 8px 0; }
+.exact-prompt summary { color: var(--label); cursor: pointer; font-size: 13px; font-weight: 700; }
+.exact-prompt pre { margin: 10px 0 2px; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; font-size: 13px; line-height: 1.5; }
+.answer-preview { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55; }
+.answer-preview.is-collapsed { max-height: 7.75em; overflow: hidden; }
+.answer-toggle { margin-top: 8px; border: 0; padding: 4px 0; background: transparent; color: var(--primary); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.answer-toggle:hover, .answer-toggle:focus-visible { text-decoration: underline; }
+.answer-toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
 @media (max-width: 600px) {
   body { padding: 12px; }
   .app-shell { padding: 22px; }
@@ -293,15 +304,6 @@ textarea:focus-visible {
     min-height: 44px;
     width: auto;
   }
-}
-
-.show-mix-button:hover,
-.show-mix-button:focus-visible {
-  filter: brightness(1.05);
-}
-
-.show-mix-button:active {
-  transform: translateY(1px);
 }
 
 .output-section {

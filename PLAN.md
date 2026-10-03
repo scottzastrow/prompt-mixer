@@ -1,6 +1,6 @@
 # Prompt Mixer — implementation plan
 
-This plan follows the revised [specification](SPEC.md). The original Homework 2 document remains a record of the first scope; the live AI response is a later change.
+This plan follows the current [specification](SPEC.md). The original Homework 2 document remains a record of the first scope; live AI generation, experiment logging, and cumulative response comparison are later iterations.
 
 ## Goal and approach
 
@@ -8,8 +8,8 @@ Build one screen that shows how optional prompt instructions affect the text sen
 
 ## Components
 
-1. **Browser:** Raw, Context, Role, and Constraints inputs; live combined prompt preview; checkbox semantics for optional text; Generate Response; response/error display.
-2. **Server:** `POST /api/generate` validates the prompt, calls OpenAI, and returns only the generated text. It also serves the static files and `GET /health`.
+1. **Browser:** Raw, Context, Role, and Constraints inputs; live combined prompt preview; checkbox semantics for optional text; Generate Response; sequential cumulative prompt variants; independently stateful response cards with exact prompts and expandable answer previews.
+2. **Server:** `POST /api/generate` validates each prompt, applies the existing request limits, calls OpenAI, and returns only the generated text. It also serves the static files and `GET /health`.
 3. **Deployment:** existing Lightsail Ubuntu host, separate Prompt Mixer service on `127.0.0.1:8081`, and its own Nginx virtual host. EDI remains on `127.0.0.1:8080`.
 4. **Access:** finish HTTPS before adding basic authentication and enabling the paid API endpoint. Keep the Prompt Mixer key in a protected service environment file, separate from EDI.
 
@@ -19,9 +19,17 @@ Build one screen that shows how optional prompt instructions affect the text sen
 - **Iteration 2 (built):** Generate a real AI answer. Verify required input, server validation, API response handling, and that the key does not appear in public files. Two local tests passed and a live answer was verified.
 - **Iteration 3 (deployed):** HTTPS, the private Node service, and basic authentication are in place. Live raw and contextual answers worked; EDI remained available. Simulated certificate renewals succeeded for both sites.
 - **Iteration 4 (built):** Add a persistent experiment log. Successful AI interactions are stored in the Bluehost MySQL database `vergotek_promptmixer` with timestamp, model, prompt, and response. Database logging is non-fatal: if persistence fails, the AI response is still returned to the user. The application opens a short-lived database connection for each write because the hosted MySQL server has a 10-second idle timeout.
+- **Iteration 5 (implemented):** Generate the raw-only response and then one response per selected, nonempty optional field, cumulatively in Context, Role, Constraints order. Use one server request per card so existing limits and logging apply per answer. Preserve completed answers on individual errors, stop after a rate-limit response, and cancel/ignore stale work when inputs, presets, or Clear change the run. Automated tests pass; manual browser and production checks remain.
 - **Later experiment:** Add a History interface so stored interactions can be reviewed without direct database access.
-- **Later experiment:** Compare Raw and Mixed answers side by side. Add this to the spec before implementation; it is not part of the current deployment gate.
 
 ## Known dependency
 
 The Bluehost A record points `promptmixer.vergotek.com` to `3.134.129.111`. HTTP worked; the first Certbot attempt failed because Let's Encrypt saw NXDOMAIN. A later Certbot attempt succeeded on September 25 (Chicago time) and installed the certificate. HTTPS and the HTTP redirect were verified before authenticated access and the paid API endpoint went live.
+
+## Iteration 5 verification
+
+- Verify cumulative prompt construction for all-selected, partially-selected, unchecked, and blank optional fields.
+- Verify independent card loading/success/error states, preservation of successful answers, and stop-on-429 behavior.
+- Verify each prompt is a distinct rate-limited/logged server request.
+- Verify duplicate prevention and cancellation on edits, preset changes, and Clear, including late responses from aborted requests.
+- Verify exact prompt display, accessible Show more / Show less controls, live preview, server-only credentials, diagnostics, and database logging.
