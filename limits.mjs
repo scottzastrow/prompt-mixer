@@ -24,13 +24,13 @@ export class RequestLimits {
     const nextDay = Date.parse(`${day}T00:00:00Z`) + DAY;
 
     if (state.total >= this.sitePerDay) {
-      return { status: 429, retryAfter: Math.ceil((nextDay - now) / 1000), error: 'The site has reached its daily AI response limit. Try again tomorrow.' };
+      return { status: 429, retryAfter: Math.ceil((nextDay - now) / 1000), errorCode: 'rate_site_daily' };
     }
     if (entry.count >= this.perDay) {
-      return { status: 429, retryAfter: Math.ceil((nextDay - now) / 1000), error: 'This connection has reached its daily AI response limit. Try again tomorrow.' };
+      return { status: 429, retryAfter: Math.ceil((nextDay - now) / 1000), errorCode: 'rate_ip_daily' };
     }
     if (recent.length >= this.perMinute) {
-      return { status: 429, retryAfter: Math.ceil((recent[0] + MINUTE - now) / 1000), error: 'Too many AI requests from this connection. Try again in a minute.' };
+      return { status: 429, retryAfter: Math.ceil((recent[0] + MINUTE - now) / 1000), errorCode: 'rate_ip_minute' };
     }
 
     const next = { ...state, total: state.total + 1, clients: { ...state.clients, [key]: { count: entry.count + 1, recent: [...recent, now] } } };

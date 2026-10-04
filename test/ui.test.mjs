@@ -13,6 +13,8 @@ test('places Generate Response between the preview and comparison in DOM order',
   assert.ok(formEnd < previewStart, 'the input form ends before the preview');
   assert.ok(previewEnd < button, 'the button follows the complete preview section');
   assert.ok(button < comparison, 'the button precedes response comparison');
+  assert.ok(html.indexOf('id="preset-select"') < html.indexOf('id="clear-button"'));
+  assert.ok(html.indexOf('id="clear-button"') < html.indexOf('id="language-select"'));
 });
 
 class FakeElement {
@@ -59,11 +61,18 @@ class FakeElement {
 
 test('renders response states below Response and hides/restores the prompt preview correctly', async () => {
   const ids = [
-    'prompt-form', 'raw-prompt', 'preset-select', 'clear-button', 'output-text',
+    'prompt-form', 'raw-prompt', 'preset-select', 'clear-button', 'language-select', 'output-text',
     'generate-response', 'response-status', 'response-cards', 'include-context',
     'context-input', 'include-role', 'role-input', 'include-constraints', 'constraints-input',
   ];
   const elements = new Map(ids.map(id => [id, new FakeElement()]));
+  const previousStorage = globalThis.localStorage;
+  const previousDocument = globalThis.document;
+  const savedLocales = new Map();
+  globalThis.localStorage = {
+    getItem: key => savedLocales.get(key) ?? null,
+    setItem: (key, value) => savedLocales.set(key, value),
+  };
   const form = elements.get('prompt-form');
   form.reset = () => {
     for (const [id, element] of elements) {
@@ -75,8 +84,10 @@ test('renders response states below Response and hides/restores the prompt previ
   const outputSection = new FakeElement('section');
   const responseSection = new FakeElement('section');
   globalThis.document = {
+    documentElement: { lang: 'en' },
     getElementById: id => elements.get(id),
     querySelector: selector => selector === '.output-section' ? outputSection : responseSection,
+    querySelectorAll: () => [],
     createElement: tagName => new FakeElement(tagName),
   };
 
@@ -84,18 +95,20 @@ test('renders response states below Response and hides/restores the prompt previ
   const pdfDownloads = [];
   const registeredFonts = [];
   const virtualFontFiles = [];
+  const requestBodies = [];
   let generationRequests = 0;
   globalThis.pdfMake = {
     addFonts: fonts => registeredFonts.push(fonts),
     addVirtualFileSystem: files => virtualFontFiles.push(files),
     createPdf: definition => ({ download: filename => pdfDownloads.push({ definition, filename }) }),
   };
-  globalThis.fetch = url => {
+  globalThis.fetch = (url, options) => {
     if (url === '/fonts/NotoSansJP-Regular.otf') {
       return Promise.resolve({ ok: true, arrayBuffer: async () => new Uint8Array([1]).buffer });
     }
     return new Promise(resolve => {
       generationRequests += 1;
+      requestBodies.push(options.body);
       fetchResolvers.push(result => resolve(result));
     });
   };
@@ -167,7 +180,7 @@ test('renders response states below Response and hides/restores the prompt previ
     assert.match(pdfText, /Raw only/);
     const promptRuns = pdfDownloads[0].definition.content[3].text;
     const responseRuns = pdfDownloads[0].definition.content[5].text;
-    assert.equal(promptRuns.map(run => run.text).join(''), 'Explain tides – café Ω 東京 コーヒー.\nSecond prompt line.');
+    assert.equal(promptRuns.map(run => run.text).join(''), 'Explain tides – café Ω 東京 コーヒー.\nSecond prompt line.\n\nRespond in English. Preserve quoted text and code in their original language when appropriate.');
     assert.equal(responseRuns.map(run => run.text).join(''), 'First line α.\n\nSecond line 東京.');
     assert.ok(promptRuns.some(run => run.text.includes('café Ω') && run.font === 'Roboto'));
     assert.ok(promptRuns.some(run => run.text === '東京' && run.font === 'NotoSansJP'));
@@ -182,9 +195,9 @@ test('renders response states below Response and hides/restores the prompt previ
     assert.equal(elements.get('response-cards').children.length, 0);
 
     outputSection.hidden = true;
-    const errorGeneration = run();
+    const japaneseErrorGeneration = run();
     fetchResolvers.shift()({ ok: false, status: 502, json: async () => ({ error: 'Upstream failed.' }) });
-    await errorGeneration;
+    await japaneseErrorGeneration;
     const failedCard = elements.get('response-cards').children[0];
     const failedResponse = failedCard.children[3];
     assert.equal(failedResponse.children[0].textContent, 'Response');
@@ -205,8 +218,70 @@ test('renders response states below Response and hides/restores the prompt previ
     outputSection.hidden = true;
     run();
     assert.equal(outputSection.hidden, false, 'validation failure keeps the preview visible');
+
+    elements.get('raw-prompt').value = 'Keep this typed prompt.';
+    elements.get('context-input').value = 'Keep this context.';
+    elements.get('include-context').checked = true;
+    form.trigger('input');
+    const pendingGeneration = run();
+    const requestsBeforeLanguageChange = generationRequests;
+    const languageSelect = elements.get('language-select');
+    languageSelect.value = 'ja';
+    languageSelect.trigger('change');
+    assert.equal(globalThis.document.documentElement.lang, 'ja');
+    assert.equal(savedLocales.get('prompt-mixer-language'), 'ja');
+    assert.equal(elements.get('raw-prompt').value, 'Keep this typed prompt.');
+    assert.equal(elements.get('context-input').value, 'Keep this context.');
+    assert.equal(elements.get('include-context').checked, true);
+    assert.match(elements.get('output-text').textContent, /日本語で回答してください/);
+    assert.equal(elements.get('response-cards').children.length, 0);
+    assert.equal(outputSection.hidden, false);
+    assert.equal(generationRequests, requestsBeforeLanguageChange, 'switching language does not make an AI request');
+    fetchResolvers.shift()({ ok: true, status: 200, json: async () => ({ response: 'Stale response.' }) });
+    await pendingGeneration;
+    assert.equal(elements.get('response-cards').children.length, 0, 'late responses from a cancelled run stay cleared');
+
+    elements.get('preset-select').value = 'one';
+    elements.get('preset-select').trigger('change');
+    assert.match(elements.get('raw-prompt').value, /日帰りハイキング/);
+    elements.get('include-context').checked = false;
+    elements.get('include-role').checked = false;
+    elements.get('include-constraints').checked = false;
+
+    const japaneseGeneration = run();
+    const japanesePrompt = fetchResolvers.shift();
+    assert.match(JSON.parse(requestBodies.at(-1)).prompt, /日本語で回答してください/);
+    japanesePrompt({ ok: true, status: 200, json: async () => ({ response: '必需品を三つ持っていきましょう。' }) });
+    await japaneseGeneration;
+    const japaneseCard = elements.get('response-cards').children[0];
+    assert.equal(japaneseCard.children[0].textContent, '基本プロンプトのみ');
+    await japaneseCard.children[1].trigger('click');
+    const japanesePdf = pdfDownloads[1].definition;
+    const cardTitleRuns = japanesePdf.content[1].text;
+    const promptHeadingRuns = japanesePdf.content[2].text;
+    const responseHeadingRuns = japanesePdf.content[4].text;
+    assert.equal(cardTitleRuns.map(run => run.text).join(''), '基本プロンプトのみ');
+    assert.equal(promptHeadingRuns.map(run => run.text).join(''), '送信したプロンプト');
+    assert.equal(responseHeadingRuns.map(run => run.text).join(''), '回答');
+    assert.ok(cardTitleRuns.every(run => run.font === 'NotoSansJP'));
+    assert.ok(promptHeadingRuns.every(run => run.font === 'NotoSansJP'));
+    assert.ok(responseHeadingRuns.every(run => run.font === 'NotoSansJP'));
+
+    const errorGeneration = run();
+    fetchResolvers.shift()({ ok: false, status: 502, json: async () => ({
+      errorCode: 'upstream_busy', error: 'AIが混み合っているか、利用が制限されています。しばらくしてからお試しください。',
+    }) });
+    await errorGeneration;
+    assert.match(elements.get('response-cards').children[0].children[3].children[1].textContent, /AIが混み合っています|AIが混み合っているか/);
+
+    elements.get('clear-button').trigger('click');
+    assert.equal(languageSelect.value, 'ja', 'Clear preserves the selected language');
+    assert.equal(elements.get('raw-prompt').value, '');
   } finally {
-    delete globalThis.document;
+    if (previousDocument === undefined) delete globalThis.document;
+    else globalThis.document = previousDocument;
+    if (previousStorage === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = previousStorage;
     delete globalThis.fetch;
     delete globalThis.pdfMake;
   }

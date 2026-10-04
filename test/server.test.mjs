@@ -20,6 +20,9 @@ test('serves the UI and rejects invalid input without calling OpenAI', async () 
     assert.equal(comparisonModule.status, 200);
     assert.match(comparisonModule.headers.get('Content-Type'), /javascript/);
     assert.match(await comparisonModule.text(), /buildComparisonPrompts/);
+    const localeModule = await realFetch(`${base}/i18n.mjs`);
+    assert.equal(localeModule.status, 200);
+    assert.match(await localeModule.text(), /languageDirective/);
 
     for (const asset of ['pdfmake.min.js', 'vfs_fonts.js']) {
       const pdfAsset = await realFetch(`${base}/${asset}`);
@@ -47,6 +50,14 @@ test('serves the UI and rejects invalid input without calling OpenAI', async () 
       body: JSON.stringify({ prompt: '' }),
     });
     assert.equal(invalid.status, 400);
+    const invalidJapanese = await realFetch(`${base}/api/generate`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: '', locale: 'ja' }),
+    });
+    assert.equal(invalidJapanese.status, 400);
+    assert.deepEqual(await invalidJapanese.json(), {
+      errorCode: 'invalid_prompt', error: '6,000文字以内のプロンプトを入力してください。',
+    });
 
     const forbidden = await realFetch(`${base}/.env`);
     assert.equal(forbidden.status, 404);
@@ -73,11 +84,11 @@ test('uses server side key and returns model output without exposing credentials
   try {
     const result = await realFetch(`http://127.0.0.1:${server.address().port}/api/generate`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: 'Explain recursion.\n\nContext: beginner' }),
+      body: JSON.stringify({ prompt: 'Explain recursion.\n\nRespond in Japanese.', locale: 'ja' }),
     });
     assert.equal(result.status, 200);
     assert.deepEqual(await result.json(), { response: 'A concise explanation.' });
-    assert.equal(submitted.input, 'Explain recursion.\n\nContext: beginner');
+    assert.equal(submitted.input, 'Explain recursion.\n\nRespond in Japanese.');
     assert.equal(submitted.max_output_tokens, 3000);
     assert.deepEqual(submitted.reasoning, { effort: 'low' });
     assert.equal(submitted.store, false);
@@ -119,7 +130,7 @@ test('logs empty OpenAI output metadata without exposing prompt or content', asy
     });
 
     assert.equal(result.status, 502);
-    assert.deepEqual(await result.json(), { error: 'The AI returned no text. Please try again.' });
+    assert.deepEqual(await result.json(), { errorCode: 'empty_response', error: 'The AI returned no text. Please try again.' });
 
     const diagnostic = logged.find(args => args.some(arg => arg && typeof arg === 'object' && arg.id === 'resp_empty_123'));
     assert.ok(diagnostic, 'server should log empty output metadata');
@@ -246,6 +257,9 @@ test('limits persist across restarts, distinguish IPs, and block before the paid
       const blocked = await request('192.0.2.3');
       assert.equal(blocked.status, 429);
       assert.ok(Number(blocked.headers.get('Retry-After')) > 0);
+      assert.deepEqual(await blocked.json(), {
+        errorCode: 'rate_ip_minute', error: 'Too many AI requests from this connection. Try again in a minute.',
+      });
       assert.equal((await request('192.0.2.4')).status, 200);
       assert.equal(paidCalls, 2);
     } finally {

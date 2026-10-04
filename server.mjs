@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
 import mysql from 'mysql2/promise';
 import { RequestLimits } from './limits.mjs';
+import { normalizeLocale, serverErrorMessage } from './i18n.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -12,6 +13,10 @@ const pdfFonts = require('pdfmake/build/vfs_fonts.js');
 const port = Number(process.env.PORT || 8081);
 const host = process.env.HOST || '127.0.0.1';
 const model = process.env.OPENAI_MODEL || 'gpt-5-mini';
+
+function sendError(res, status, errorCode, locale = 'en', extraHeaders = {}) {
+  send(res, status, { errorCode, error: serverErrorMessage(locale, errorCode) }, extraHeaders);
+}
 
 async function logInteraction(prompt, response) {
   const connection = await mysql.createConnection({
@@ -53,6 +58,7 @@ const assets = new Map([
   ['/index.html', ['index.html', 'text/html; charset=utf-8']],
   ['/script.js', ['script.js', 'text/javascript; charset=utf-8']],
   ['/comparison.mjs', ['comparison.mjs', 'text/javascript; charset=utf-8']],
+  ['/i18n.mjs', ['i18n.mjs', 'text/javascript; charset=utf-8']],
   ['/styles.css', ['styles.css', 'text/css; charset=utf-8']],
   ['/pdfmake.min.js', ['node_modules/pdfmake/build/pdfmake.min.js', 'text/javascript; charset=utf-8']],
   ['/fonts/NotoSansJP-Regular.otf', ['assets/fonts/NotoSansJP-Regular.otf', 'font/otf']],
@@ -88,7 +94,7 @@ function logIncompleteOpenAIResponse(response, data) {
 
 async function generate(req, res) {
   if (!req.headers['content-type']?.toLowerCase().startsWith('application/json')) {
-    send(res, 415, { error: 'Send a JSON request.' });
+    sendError(res, 415, 'unsupported_media_type');
     return;
   }
 
@@ -96,24 +102,27 @@ async function generate(req, res) {
   for await (const chunk of req) {
     body += chunk;
     if (body.length > 12000) {
-      send(res, 413, { error: 'Prompt is too long.' });
+      sendError(res, 413, 'request_too_large');
       return;
     }
   }
 
   let prompt;
+  let locale = 'en';
   try {
-    prompt = JSON.parse(body).prompt;
+    const payload = JSON.parse(body);
+    prompt = payload.prompt;
+    locale = normalizeLocale(payload.locale);
   } catch {
-    send(res, 400, { error: 'Invalid JSON.' });
+    sendError(res, 400, 'invalid_json');
     return;
   }
   if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 6000) {
-    send(res, 400, { error: 'Enter a prompt of up to 6,000 characters.' });
+    sendError(res, 400, 'invalid_prompt', locale);
     return;
   }
   if (!process.env.OPENAI_API_KEY) {
-    send(res, 503, { error: 'AI is not configured on this server.' });
+    sendError(res, 503, 'ai_not_configured', locale);
     return;
   }
 
@@ -124,12 +133,12 @@ async function generate(req, res) {
   try {
     const blocked = getLimits().reserve(ip);
     if (blocked) {
-      send(res, blocked.status, { error: blocked.error }, { 'Retry-After': String(blocked.retryAfter) });
+      sendError(res, blocked.status, blocked.errorCode, locale, { 'Retry-After': String(blocked.retryAfter) });
       return;
     }
   } catch (error) {
     console.error('Could not persist AI request limit:', error.name);
-    send(res, 503, { error: 'AI responses are temporarily unavailable. Please try again later.' });
+    sendError(res, 503, 'rate_limit_unavailable', locale);
     return;
   }
 
@@ -151,9 +160,7 @@ async function generate(req, res) {
     });
     if (!response.ok) {
       console.error(`OpenAI request failed: HTTP ${response.status}`);
-      send(res, response.status === 429 ? 429 : 502, {
-        error: response.status === 429 ? 'AI is busy or usage is limited. Try again later.' : 'AI response unavailable. Please try again.',
-      });
+      sendError(res, response.status === 429 ? 429 : 502, response.status === 429 ? 'upstream_busy' : 'upstream_unavailable', locale);
       return;
     }
     const data = await response.json();
@@ -166,7 +173,7 @@ async function generate(req, res) {
     }
 
     if (!output) {
-      send(res, 502, { error: 'The AI returned no text. Please try again.' });
+      sendError(res, 502, 'empty_response', locale);
       return;
     }
     try {
@@ -178,7 +185,7 @@ async function generate(req, res) {
     send(res, 200, { response: output });
   } catch (error) {
     console.error('OpenAI request failed:', error.name);
-    send(res, 502, { error: 'AI response unavailable. Please try again.' });
+    sendError(res, 502, 'upstream_unavailable', locale);
   }
 }
 
@@ -204,7 +211,7 @@ export const server = createServer(async (req, res) => {
     return;
   }
   if (req.method !== 'GET' || !assets.has(path)) {
-    send(res, 404, { error: 'Not found.' });
+    sendError(res, 404, 'not_found');
     return;
   }
   const [filename, contentType] = assets.get(path);
@@ -218,7 +225,7 @@ export const server = createServer(async (req, res) => {
     });
     res.end(content);
   } catch {
-    send(res, 500, { error: 'Could not load the page.' });
+    sendError(res, 500, 'page_load_failed');
   }
 });
 
