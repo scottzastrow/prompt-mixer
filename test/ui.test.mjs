@@ -82,21 +82,31 @@ test('renders response states below Response and hides/restores the prompt previ
 
   const fetchResolvers = [];
   const pdfDownloads = [];
+  const registeredFonts = [];
+  const virtualFontFiles = [];
   let generationRequests = 0;
   globalThis.pdfMake = {
+    addFonts: fonts => registeredFonts.push(fonts),
+    addVirtualFileSystem: files => virtualFontFiles.push(files),
     createPdf: definition => ({ download: filename => pdfDownloads.push({ definition, filename }) }),
   };
-  globalThis.fetch = () => new Promise(resolve => {
-    generationRequests += 1;
-    fetchResolvers.push(result => resolve(result));
-  });
+  globalThis.fetch = url => {
+    if (url === '/fonts/NotoSansJP-Regular.otf') {
+      return Promise.resolve({ ok: true, arrayBuffer: async () => new Uint8Array([1]).buffer });
+    }
+    return new Promise(resolve => {
+      generationRequests += 1;
+      fetchResolvers.push(result => resolve(result));
+    });
+  };
 
   try {
     await import('../script.js?ui-test');
+    assert.equal(registeredFonts[0].NotoSansJP.normal, 'NotoSansJP-Regular.otf');
     const generate = elements.get('generate-response');
     const run = () => generate.trigger('click');
 
-    elements.get('raw-prompt').value = 'Explain tides – café.\nSecond prompt line.';
+    elements.get('raw-prompt').value = 'Explain tides – café Ω 東京.\nSecond prompt line.';
     elements.get('context-input').value = 'Near the coast.';
     elements.get('include-context').checked = true;
     elements.get('role-input').value = 'A science teacher.';
@@ -145,17 +155,22 @@ test('renders response states below Response and hides/restores the prompt previ
 
     toggle.trigger('click');
     const requestsBeforeDownload = generationRequests;
-    download.trigger('click');
+    await download.trigger('click');
     assert.equal(generationRequests, requestsBeforeDownload, 'downloading does not start another generation request');
     assert.equal(toggle.getAttribute('aria-expanded'), 'false', 'downloading preserves collapsed answer state');
     assert.equal(answer.classes.has('is-collapsed'), true);
     assert.equal(pdfDownloads.length, 1);
+    assert.deepEqual(virtualFontFiles, [{ 'NotoSansJP-Regular.otf': 'AQ==' }]);
     assert.equal(pdfDownloads[0].filename, 'prompt-mixer-raw-only.pdf');
     const pdfText = JSON.stringify(pdfDownloads[0].definition);
     assert.match(pdfText, /Prompt Mixer/);
     assert.match(pdfText, /Raw only/);
-    assert.match(pdfText, /Explain tides – café\.\\nSecond prompt line\./);
-    assert.match(pdfText, /First line α\.\\n\\nSecond line 東京\./);
+    const promptRuns = pdfDownloads[0].definition.content[3].text;
+    const responseRuns = pdfDownloads[0].definition.content[5].text;
+    assert.equal(promptRuns.map(run => run.text).join(''), 'Explain tides – café Ω 東京.\nSecond prompt line.');
+    assert.equal(responseRuns.map(run => run.text).join(''), 'First line α.\n\nSecond line 東京.');
+    assert.ok(promptRuns.some(run => run.text.includes('café Ω') && run.font === 'Roboto'));
+    assert.ok(promptRuns.some(run => run.text === '東京' && run.font === 'NotoSansJP'));
 
     elements.get('context-input').value = '';
     elements.get('include-context').checked = false;

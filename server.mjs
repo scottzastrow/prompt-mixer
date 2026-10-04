@@ -55,6 +55,8 @@ const assets = new Map([
   ['/comparison.mjs', ['comparison.mjs', 'text/javascript; charset=utf-8']],
   ['/styles.css', ['styles.css', 'text/css; charset=utf-8']],
   ['/pdfmake.min.js', ['node_modules/pdfmake/build/pdfmake.min.js', 'text/javascript; charset=utf-8']],
+  ['/fonts/NotoSansJP-Regular.otf', ['assets/fonts/NotoSansJP-Regular.otf', 'font/otf']],
+  ['/fonts/OFL.txt', ['assets/fonts/OFL.txt', 'text/plain; charset=utf-8']],
 ]);
 
 function send(res, status, data, extraHeaders = {}) {

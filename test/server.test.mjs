@@ -34,6 +34,14 @@ test('serves the UI and rejects invalid input without calling OpenAI', async () 
       }
     }
 
+    const japaneseFont = await realFetch(`${base}/fonts/NotoSansJP-Regular.otf`);
+    assert.equal(japaneseFont.status, 200);
+    assert.match(japaneseFont.headers.get('Content-Type'), /font\/otf/);
+    assert.match(japaneseFont.headers.get('Content-Security-Policy'), /script-src 'self'/);
+    assert.ok((await japaneseFont.arrayBuffer()).byteLength > 1_000_000);
+    const fontLicense = await realFetch(`${base}/fonts/OFL.txt`);
+    assert.match(await fontLicense.text(), /SIL OPEN FONT LICENSE Version 1\.1/);
+
     const invalid = await realFetch(`${base}/api/generate`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt: '' }),
