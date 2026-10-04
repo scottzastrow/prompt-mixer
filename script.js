@@ -263,9 +263,23 @@ function createResponseCards(prompts) {
     const element = document.createElement('article');
     element.className = 'response-card';
     element.setAttribute('aria-busy', 'false');
+    const card = { response: undefined };
 
     const heading = document.createElement('h3');
     heading.textContent = label;
+
+    const download = document.createElement('button');
+    download.className = 'card-download';
+    download.type = 'button';
+    download.disabled = true;
+    download.setAttribute('aria-label', 'Download response as PDF');
+    download.setAttribute('title', 'Download response as PDF');
+    download.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>';
+    download.addEventListener('click', () => {
+      if (!download.disabled && card.response !== undefined) {
+        downloadResponsePdf(label, prompt, card.response);
+      }
+    });
 
     const promptDetails = document.createElement('details');
     promptDetails.className = 'exact-prompt';
@@ -306,23 +320,50 @@ function createResponseCards(prompts) {
     status.textContent = 'Waiting to generate.';
 
     responseContent.append(answerLabel, status, answer, toggle);
-    element.append(heading, promptDetails, responseContent);
-    return { element, status, answer, toggle, lastStatus: 'waiting' };
+    element.append(heading, download, promptDetails, responseContent);
+    Object.assign(card, { element, status, answer, toggle, download, prompt, lastStatus: 'waiting' });
+    return card;
   });
+}
+
+function downloadResponsePdf(label, prompt, response) {
+  const safeLabel = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'response';
+  const definition = {
+    info: { title: `Prompt Mixer - ${label}` },
+    pageSize: 'LETTER',
+    pageMargins: [54, 54, 54, 54],
+    defaultStyle: { font: 'Roboto', fontSize: 11, lineHeight: 1.35 },
+    styles: {
+      title: { fontSize: 20, bold: true, margin: [0, 0, 0, 12] },
+      cardLabel: { fontSize: 15, bold: true, margin: [0, 0, 0, 18] },
+      section: { fontSize: 12, bold: true, margin: [0, 12, 0, 5] },
+    },
+    content: [
+      { text: 'Prompt Mixer', style: 'title' },
+      { text: label, style: 'cardLabel' },
+      { text: 'Exact submitted prompt', style: 'section' },
+      { text: prompt, preserveLeadingSpaces: true },
+      { text: 'Response', style: 'section' },
+      { text: response, preserveLeadingSpaces: true },
+    ],
+  };
+  globalThis.pdfMake.createPdf(definition).download(`prompt-mixer-${safeLabel}.pdf`);
 }
 
 function updateResponseCards(cards, states) {
   cards.forEach((card, index) => {
-    const { element, status, answer, toggle } = card;
+    const { element, status, answer, toggle, download } = card;
     const state = states[index];
     if (!state) return;
 
     element.setAttribute('aria-busy', String(state.status === 'loading'));
+    download.disabled = state.status !== 'success';
     if (state.status === 'loading') {
       status.textContent = 'Generating…';
     } else if (state.status === 'success') {
       status.textContent = 'Response generated.';
       if (card.lastStatus !== 'success') {
+        card.response = state.response;
         answer.textContent = state.response;
         answer.classList.add('is-collapsed');
         toggle.textContent = 'Show more';

@@ -81,7 +81,13 @@ test('renders response states below Response and hides/restores the prompt previ
   };
 
   const fetchResolvers = [];
+  const pdfDownloads = [];
+  let generationRequests = 0;
+  globalThis.pdfMake = {
+    createPdf: definition => ({ download: filename => pdfDownloads.push({ definition, filename }) }),
+  };
   globalThis.fetch = () => new Promise(resolve => {
+    generationRequests += 1;
     fetchResolvers.push(result => resolve(result));
   });
 
@@ -90,7 +96,7 @@ test('renders response states below Response and hides/restores the prompt previ
     const generate = elements.get('generate-response');
     const run = () => generate.trigger('click');
 
-    elements.get('raw-prompt').value = 'Explain tides.';
+    elements.get('raw-prompt').value = 'Explain tides – café.\nSecond prompt line.';
     elements.get('context-input').value = 'Near the coast.';
     elements.get('include-context').checked = true;
     elements.get('role-input').value = 'A science teacher.';
@@ -99,8 +105,11 @@ test('renders response states below Response and hides/restores the prompt previ
     assert.equal(outputSection.hidden, true, 'a valid run hides the combined-prompt preview');
 
     const card = elements.get('response-cards').children[0];
-    const [title, exactPrompt, responseContent] = card.children;
+    const [title, download, exactPrompt, responseContent] = card.children;
     assert.equal(title.tagName, 'h3');
+    assert.equal(download.disabled, true);
+    assert.equal(download.getAttribute('aria-label'), 'Download response as PDF');
+    assert.equal(download.getAttribute('title'), 'Download response as PDF');
     assert.equal(exactPrompt.tagName, 'details');
     assert.equal(responseContent.tagName, 'section');
     const [responseHeading, status, answer, toggle] = responseContent.children;
@@ -109,11 +118,12 @@ test('renders response states below Response and hides/restores the prompt previ
     assert.equal(card.children.indexOf(exactPrompt) < card.children.indexOf(responseContent), true);
     assert.equal(responseContent.children.indexOf(status), responseContent.children.indexOf(responseHeading) + 1);
 
-    fetchResolvers.shift()({ ok: true, status: 200, json: async () => ({ response: 'Raw answer.' }) });
+    fetchResolvers.shift()({ ok: true, status: 200, json: async () => ({ response: 'First line α.\n\nSecond line 東京.' }) });
     await new Promise(resolve => setImmediate(resolve));
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(status.textContent, 'Response generated.');
-    assert.equal(elements.get('response-cards').children[1].children[2].children[1].textContent, 'Generating…');
+    assert.equal(download.disabled, false, 'a successful card enables its download');
+    assert.equal(elements.get('response-cards').children[1].children[3].children[1].textContent, 'Generating…');
 
     toggle.trigger('click');
     assert.equal(toggle.getAttribute('aria-expanded'), 'true');
@@ -122,16 +132,30 @@ test('renders response states below Response and hides/restores the prompt previ
     fetchResolvers.shift()({ ok: true, status: 200, json: async () => ({ response: 'Context answer.' }) });
     await new Promise(resolve => setImmediate(resolve));
     await new Promise(resolve => setImmediate(resolve));
-    assert.equal(elements.get('response-cards').children[2].children[2].children[1].textContent, 'Generating…');
+    assert.equal(elements.get('response-cards').children[2].children[3].children[1].textContent, 'Generating…');
     assert.equal(toggle.getAttribute('aria-expanded'), 'true', 'later loading preserves the expanded answer');
 
     fetchResolvers.shift()({ ok: true, status: 200, json: async () => ({ response: 'Role answer.' }) });
     await generation;
-    assert.equal(answer.textContent, 'Raw answer.');
+    assert.equal(answer.textContent, 'First line α.\n\nSecond line 東京.');
     assert.equal(toggle.getAttribute('aria-expanded'), 'true', 'later success preserves the expanded answer');
     assert.equal(toggle.textContent, 'Show less');
     assert.equal(answer.classes.has('is-collapsed'), false);
     assert.equal(toggle.hidden, false);
+
+    toggle.trigger('click');
+    const requestsBeforeDownload = generationRequests;
+    download.trigger('click');
+    assert.equal(generationRequests, requestsBeforeDownload, 'downloading does not start another generation request');
+    assert.equal(toggle.getAttribute('aria-expanded'), 'false', 'downloading preserves collapsed answer state');
+    assert.equal(answer.classes.has('is-collapsed'), true);
+    assert.equal(pdfDownloads.length, 1);
+    assert.equal(pdfDownloads[0].filename, 'prompt-mixer-raw-only.pdf');
+    const pdfText = JSON.stringify(pdfDownloads[0].definition);
+    assert.match(pdfText, /Prompt Mixer/);
+    assert.match(pdfText, /Raw only/);
+    assert.match(pdfText, /Explain tides – café\.\\nSecond prompt line\./);
+    assert.match(pdfText, /First line α\.\\n\\nSecond line 東京\./);
 
     elements.get('context-input').value = '';
     elements.get('include-context').checked = false;
@@ -145,9 +169,11 @@ test('renders response states below Response and hides/restores the prompt previ
     const errorGeneration = run();
     fetchResolvers.shift()({ ok: false, status: 502, json: async () => ({ error: 'Upstream failed.' }) });
     await errorGeneration;
-    const failedResponse = elements.get('response-cards').children[0].children[2];
+    const failedCard = elements.get('response-cards').children[0];
+    const failedResponse = failedCard.children[3];
     assert.equal(failedResponse.children[0].textContent, 'Response');
     assert.equal(failedResponse.children[1].textContent, 'Upstream failed.');
+    assert.equal(failedCard.children[1].disabled, true, 'failed cards keep download disabled');
 
     outputSection.hidden = true;
     form.trigger('change');
@@ -166,5 +192,6 @@ test('renders response states below Response and hides/restores the prompt previ
   } finally {
     delete globalThis.document;
     delete globalThis.fetch;
+    delete globalThis.pdfMake;
   }
 });

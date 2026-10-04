@@ -26,6 +26,14 @@ Earlier iterations and deployment are recorded below. The current iteration impl
 - [x] I5-T5: Add focused automated tests for cumulative prompt selection, card/run behavior, cancellation, failure preservation, and rate-limit stopping; run the full suite.
 - [ ] I5-T6: Manually verify keyboard accessibility, responsive card layout, live combined-prompt preview, and production-only behaviors that cannot be established by local tests.
 
+## Iteration 6 — direct response PDF downloads
+
+- [x] I6-T1: Add the requested accessible download icon button to each card and enable it only after that response succeeds.
+- [x] I6-T2: Add a maintained PDF library as a production dependency and serve its browser assets locally without changing the existing CSP.
+- [x] I6-T3: Download a paginated PDF from the card’s exact prompt and complete response, preserving line breaks and Unicode regardless of onscreen collapse state; use a filesystem-safe filename.
+- [x] I6-T4: Add automated coverage for full-content export, success-only enabling, unchanged expansion state, and no extra generation request or database write; run `npm test`.
+- [ ] I6-T5: Manually verify downloads for short and long responses, Unicode text, accessible tooltip/label, and responsive card placement.
+
 ## Deployment and production checks
 
 - [x] T8: Install the TLS certificate for promptmixer.vergotek.com via Certbot; HTTPS is complete on the production hostname.

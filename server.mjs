@@ -2,10 +2,13 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { createRequire } from 'node:module';
 import mysql from 'mysql2/promise';
 import { RequestLimits } from './limits.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
+const require = createRequire(import.meta.url);
+const pdfFonts = require('pdfmake/build/vfs_fonts.js');
 const port = Number(process.env.PORT || 8081);
 const host = process.env.HOST || '127.0.0.1';
 const model = process.env.OPENAI_MODEL || 'gpt-5-mini';
@@ -51,6 +54,7 @@ const assets = new Map([
   ['/script.js', ['script.js', 'text/javascript; charset=utf-8']],
   ['/comparison.mjs', ['comparison.mjs', 'text/javascript; charset=utf-8']],
   ['/styles.css', ['styles.css', 'text/css; charset=utf-8']],
+  ['/pdfmake.min.js', ['node_modules/pdfmake/build/pdfmake.min.js', 'text/javascript; charset=utf-8']],
 ]);
 
 function send(res, status, data, extraHeaders = {}) {
@@ -184,6 +188,17 @@ export const server = createServer(async (req, res) => {
   }
   if (path === '/api/generate' && req.method === 'POST') {
     await generate(req, res);
+    return;
+  }
+  if (path === '/vfs_fonts.js' && req.method === 'GET') {
+    const content = `pdfMake.addVirtualFileSystem(${JSON.stringify(pdfFonts)});`;
+    res.writeHead(200, {
+      'Content-Type': 'text/javascript; charset=utf-8',
+      'Cache-Control': 'no-cache',
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Security-Policy': "default-src 'self'; connect-src 'self'; style-src 'self'; script-src 'self'; base-uri 'none'; frame-ancestors 'none'",
+    });
+    res.end(content);
     return;
   }
   if (req.method !== 'GET' || !assets.has(path)) {

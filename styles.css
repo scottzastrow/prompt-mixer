@@ -276,13 +276,34 @@ textarea:focus-visible {
 #response-status { color: var(--muted); font-size: 14px; }
 .response-cards { display: grid; gap: 12px; }
 .response-card {
+  position: relative;
   min-width: 0;
   padding: 16px;
   border: 1px solid var(--stroke);
   border-radius: 8px;
   background: var(--bg);
 }
-.response-card h3 { margin: 0 0 8px; font-size: 16px; }
+.response-card h3 { margin: 0 44px 8px 0; font-size: 16px; }
+.card-download {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 7px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--label);
+  cursor: pointer;
+}
+.card-download svg { width: 18px; height: 18px; }
+.card-download:hover:not(:disabled), .card-download:focus-visible { color: var(--primary); }
+.card-download:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.card-download:disabled { opacity: .45; cursor: not-allowed; }
 .card-response { margin-top: 14px; }
 .card-response h4 { margin: 0 0 6px; font-size: 14px; }
 .card-status { min-height: 1.4em; margin: 0 0 10px; color: var(--muted); font-size: 13px; }

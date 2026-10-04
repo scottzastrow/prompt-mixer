@@ -21,6 +21,19 @@ test('serves the UI and rejects invalid input without calling OpenAI', async () 
     assert.match(comparisonModule.headers.get('Content-Type'), /javascript/);
     assert.match(await comparisonModule.text(), /buildComparisonPrompts/);
 
+    for (const asset of ['pdfmake.min.js', 'vfs_fonts.js']) {
+      const pdfAsset = await realFetch(`${base}/${asset}`);
+      assert.equal(pdfAsset.status, 200);
+      assert.match(pdfAsset.headers.get('Content-Type'), /javascript/);
+      assert.match(pdfAsset.headers.get('Content-Security-Policy'), /script-src 'self'/);
+      const source = await pdfAsset.text();
+      assert.ok(source.length > 1000, `${asset} is served locally`);
+      if (asset === 'vfs_fonts.js') {
+        assert.match(source, /pdfMake\.addVirtualFileSystem/);
+        assert.match(source, /Roboto-Regular\.ttf/);
+      }
+    }
+
     const invalid = await realFetch(`${base}/api/generate`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt: '' }),
