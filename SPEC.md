@@ -8,11 +8,17 @@ Make the effect of prompt context visible in both the assembled instructions and
 
 The raw prompt is required. Context, Role, and Constraints are optional and are included only when their checkboxes are selected and their fields are nonempty. The combined prompt updates live as the user types or changes selections. Keep the button label **Generate Response**.
 
+Provide English and Japanese interface languages. Default to English and persist the selected language locally. Put an accessible, compact language dropdown in the header immediately after Clear, with keyboard and visual order Presets → Clear → Language. Keep this arrangement usable on narrow screens. Translate all interface labels, help text, placeholders, presets, comparison card titles, loading/success/error and validation messages, tooltips, accessibility labels, answer expansion controls, and PDF headings. Keep the product name Prompt Mixer unchanged and set the document language to `en` or `ja`.
+
+Changing language must preserve all user-entered text and checkbox selections, cancel an active comparison, clear its results, and restore the live preview without making an AI request. Clear resets form data but keeps the selected language. Selecting a preset explicitly fills its prompts in the selected language. Do not translate or overwrite user-entered text when switching languages.
+
+Every submitted comparison prompt, including Raw only, must include the selected response-language instruction. Show that instruction in the live preview and each card's exact submitted prompt; store the same exact submitted prompt in the database log and include it in the PDF. Responses must follow the selected language while preserving quoted text and code when appropriate. Localize server errors using stable error codes and translation mappings, preserving HTTP statuses, rate limits, diagnostics, and credential protection.
+
 One click generates a comparison run in this order: the raw prompt alone, then one additional response for each selected, nonempty optional field cumulatively added in the order Context, Role, Constraints. Skip unchecked or empty optional fields. With all optional fields selected and nonempty, show four response cards. Each card has a clear label, its exact submitted prompt, a compact answer preview, and accessible Show more / Show less controls.
 
 Each response card has its own loading, success, or error state. A failed request does not clear successful answers or prevent later requests from running, except that a rate-limit response stops the remaining requests. Each prompt is a separate server request and counts against the existing server rate limits. Prevent duplicate runs while generation is active.
 
-Each response card has a compact download icon button in its upper-right corner, using the supplied download SVG, with accessible label and tooltip “Download response as PDF”. Keep it disabled until that card succeeds. Clicking it downloads a real PDF directly, with no print dialog and no additional AI request or database write. The PDF contains the Prompt Mixer title, card label, exact submitted prompt, and complete AI response. Export all text regardless of the exact-prompt disclosure or answer expansion state, without changing either state. Preserve paragraphs and line breaks, wrap long text, support Unicode, and paginate long content without clipping. Use a maintained PDF library served locally under the existing Content Security Policy and give each file a meaningful filesystem-safe name.
+Each response card has a compact download icon button in its upper-right corner, using the supplied download SVG, with accessible label and tooltip “Download response as PDF”. Keep it disabled until that card succeeds. Clicking it downloads a real PDF directly, with no print dialog and no additional AI request or database write. The PDF contains the Prompt Mixer title, localized card label and headings, exact submitted prompt, and complete AI response. Export all text regardless of the exact-prompt disclosure or answer expansion state, without changing either state. Preserve paragraphs and line breaks, wrap long text, support Unicode, and paginate long content without clipping. Use the existing Japanese font support for Japanese headings and card titles as well as prompt and response text. Use a maintained PDF library served locally under the existing Content Security Policy and give each file a meaningful filesystem-safe name.
 
 Editing a prompt field, changing a checkbox or preset, or clicking Clear cancels the current run and clears its results. Responses from a canceled or superseded run must never appear. Preserve checkbox behavior, the live combined-prompt preview, server-side credentials, safe OpenAI diagnostics, rate limits, and non-fatal database logging for each successful response.
 
@@ -51,6 +57,11 @@ Confirmed live diagnosis: `response_status=incomplete`, `incomplete_details.reas
 13. Every card has the specified accessible download control; it remains disabled while waiting or after failure and is enabled only after success.
 14. Downloading exports the full prompt and response, including Unicode, paragraphs, and text hidden by collapsed UI, while preserving the onscreen expansion state; it does not issue an API request or database write.
 15. Long PDF content wraps and paginates, filenames are filesystem-safe, and all PDF assets load locally without weakening CSP.
+16. English and Japanese are selectable in the header after Clear, in the same visual and keyboard order, including at narrow widths; the selection persists locally and updates the document language.
+17. Switching language preserves typed values and checkbox states, cancels pending work, clears comparison results, restores the live preview, and makes no AI request; Clear preserves the selected language.
+18. Each explicitly selected preset populates localized text; user-entered text is never translated by switching languages.
+19. All client-visible interface text is localized. Every card's exact prompt, preview, log entry, and PDF contain the same selected-language instruction, including Raw only; successful Japanese PDFs use the Japanese font for headings and titles too.
+20. Server failures return stable error codes with English/Japanese translations while preserving HTTP statuses, rate limits, safe diagnostics, and server-only credentials.
 
 ## Immediate tasks
 
@@ -58,6 +69,7 @@ Confirmed live diagnosis: `response_status=incomplete`, `incomplete_details.reas
 2. Verify cancellation, per-card failures, rate-limit stopping, and accessible previews.
 3. Add per-card direct PDF downloads and verify full-content export without additional generation requests.
 4. Run the automated suite and manually verify the responsive comparison workflow and PDF downloads.
+5. Implement and verify English/Japanese selection, language-preserving form behavior, localized presets and errors, per-prompt language instructions, and Japanese PDF headings.
 ## Homework 4: Live prompt mixing
 
 Classroom testing showed that the checkboxes and Show Mix button were confusing. Presets filled optional fields without selecting them, leaving users unsure which text would be sent.

@@ -11,20 +11,29 @@
       <header class="header">
         <div class="header-row">
           <h1>Prompt Mixer</h1>
-          <div class="preset-picker">
-            <label for="preset-select">Examples</label>
-            <div class="preset-controls">
-              <select id="preset-select" aria-label="Choose an example preset">
-                <option value="">Choose a preset</option>
-                <option value="one">Preset 1 · Day hike</option>
-                <option value="two">Preset 2 · Variables</option>
-                <option value="three">Preset 3 · Friendly reminder</option>
+          <div class="header-controls">
+            <div class="preset-picker">
+              <label for="preset-select" data-i18n="examples">Examples</label>
+              <div class="preset-controls">
+                <select id="preset-select" aria-label="Choose a preset">
+                  <option value="" data-i18n="choosePreset">Choose a preset</option>
+                  <option value="one" data-i18n="presetOne">Preset 1 · Day hike</option>
+                  <option value="two" data-i18n="presetTwo">Preset 2 · Variables</option>
+                  <option value="three" data-i18n="presetThree">Preset 3 · Friendly reminder</option>
+                </select>
+                <button id="clear-button" type="button" aria-label="Clear all fields and results" data-i18n="clear">Clear</button>
+              </div>
+            </div>
+            <div class="language-picker">
+              <label for="language-select" data-i18n="language">Language</label>
+              <select id="language-select" aria-label="Choose interface language">
+                <option value="en">English</option>
+                <option value="ja">日本語</option>
               </select>
-              <button id="clear-button" type="button" aria-label="Clear all fields and results">Clear</button>
             </div>
           </div>
         </div>
-        <p>Choose a preset or write your own prompt. The combined prompt updates live as you type or change selections.</p>
+        <p data-i18n="intro">Choose a preset or write your own prompt. The combined prompt updates live as you type or change selections.</p>
       </header>
 
       <div class="divider"></div>
@@ -32,10 +41,10 @@
       <form id="prompt-form" novalidate>
         <section class="field-block required-block">
           <div class="field-header">
-            <label for="raw-prompt">Raw prompt</label>
-            <span>Always included</span>
+            <label for="raw-prompt" data-i18n="rawPrompt">Raw prompt</label>
+            <span data-i18n="alwaysIncluded">Always included</span>
           </div>
-          <textarea id="raw-prompt" name="rawPrompt" placeholder="Enter your raw prompt" required></textarea>
+          <textarea id="raw-prompt" name="rawPrompt" placeholder="Enter your raw prompt" data-i18n-placeholder="rawPlaceholder" required></textarea>
         </section>
 
         <section class="optional-field">
@@ -43,10 +52,10 @@
             <label class="checkbox-label">
               <input id="include-context" type="checkbox" />
               <span class="checkbox-box" aria-hidden="true"></span>
-              <span>Context</span>
+              <span data-i18n="context">Context</span>
             </label>
           </div>
-          <textarea id="context-input" name="context" placeholder="Add context to include"></textarea>
+          <textarea id="context-input" name="context" placeholder="Add context to include" data-i18n-placeholder="contextPlaceholder"></textarea>
         </section>
 
         <section class="optional-field">
@@ -54,10 +63,10 @@
             <label class="checkbox-label">
               <input id="include-role" type="checkbox" />
               <span class="checkbox-box" aria-hidden="true"></span>
-              <span>Role</span>
+              <span data-i18n="role">Role</span>
             </label>
           </div>
-          <textarea id="role-input" name="role" placeholder="Add a role or perspective"></textarea>
+          <textarea id="role-input" name="role" placeholder="Add a role or perspective" data-i18n-placeholder="rolePlaceholder"></textarea>
         </section>
 
         <section class="optional-field">
@@ -65,26 +74,26 @@
             <label class="checkbox-label">
               <input id="include-constraints" type="checkbox" />
               <span class="checkbox-box" aria-hidden="true"></span>
-              <span>Constraints</span>
+              <span data-i18n="constraints">Constraints</span>
             </label>
           </div>
-          <textarea id="constraints-input" name="constraints" placeholder="Define constraints or style guidance"></textarea>
+          <textarea id="constraints-input" name="constraints" placeholder="Define constraints or style guidance" data-i18n-placeholder="constraintsPlaceholder"></textarea>
         </section>
 
       </form>
 
       <section class="output-section" aria-live="polite">
-        <h2>Combined prompt</h2>
+        <h2 data-i18n="combinedPrompt">Combined prompt</h2>
         <div class="output-box" id="output-box">
-          <p id="output-text">Ready to mix</p>
+          <p id="output-text" data-i18n="ready">Ready to mix</p>
         </div>
       </section>
       <div class="actions">
-        <button id="generate-response" type="button" class="generate-button">Generate Response</button>
+        <button id="generate-response" type="button" class="generate-button" data-i18n="generate">Generate Response</button>
       </div>
       <section class="response-section" aria-live="polite" aria-busy="false">
-        <h2>Response comparison</h2>
-        <p id="response-status" role="status">Generate a response to compare the effect of your selected instructions.</p>
+        <h2 data-i18n="comparison">Response comparison</h2>
+        <p id="response-status" role="status" data-i18n="initialStatus">Generate a response to compare the effect of your selected instructions.</p>
         <div id="response-cards" class="response-cards" hidden></div>
       </section>
     </main>

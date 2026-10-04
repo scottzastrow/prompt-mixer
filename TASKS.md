@@ -34,6 +34,15 @@ Earlier iterations and deployment are recorded below. The current iteration impl
 - [x] I6-T4: Add automated coverage for full-content export, success-only enabling, unchanged expansion state, and no extra generation request or database write; run `npm test`.
 - [ ] I6-T5: Manually verify downloads for short and long responses, Unicode text, accessible tooltip/label, and responsive card placement.
 
+## Iteration 7 — English/Japanese language selection
+
+- [x] I7-T1: Add persistent, accessible language selection after Clear, in Presets → Clear → Language keyboard and visual order, with narrow-screen support and document language updates.
+- [x] I7-T2: Localize all interface strings and presets; preserve user values and checkbox state on switching, preserve locale on Clear, and cancel/clear active comparisons without making requests.
+- [x] I7-T3: Include a transparent selected-language instruction in the preview and every cumulative prompt, including Raw only; log the exact submitted prompt and request responses in the selected language while preserving quoted text and code when appropriate.
+- [x] I7-T4: Return stable server error codes and localize their messages without changing HTTP statuses, rate limits, diagnostics, or credential protection.
+- [x] I7-T5: Localize full-content PDFs and apply Noto Sans JP to Japanese headings and card labels as well as prompt/response text; preserve collapsed state and do not make additional requests.
+- [x] I7-T6: Add regression coverage; run `npm test` and manually verify both languages, switching with typed inputs, Japanese presets, error states, and a Japanese PDF. Remove test intercepts afterward.
+
 ## Deployment and production checks
 
 - [x] T8: Install the TLS certificate for promptmixer.vergotek.com via Certbot; HTTPS is complete on the production hostname.

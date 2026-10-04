@@ -1,20 +1,26 @@
-export function buildComparisonPrompts(rawPrompt, optionalFields) {
+import { translate } from './i18n.mjs';
+
+export function buildComparisonPrompts(rawPrompt, optionalFields, locale = 'en') {
   const raw = rawPrompt.trim();
   if (!raw) return [];
 
   const includedLabels = [];
   const promptParts = [raw];
-  const prompts = [{ label: 'Raw only', prompt: raw }];
+  const instruction = translate(locale, 'languageDirective');
+  const withInstruction = prompt => `${prompt}\n\n${instruction}`;
+  const labelKeys = { Context: 'context', Role: 'role', Constraints: 'constraints' };
+  const prompts = [{ label: translate(locale, 'rawOnly'), prompt: withInstruction(raw) }];
 
   optionalFields.forEach(({ enabled, input, label }) => {
     const value = input.trim();
     if (!enabled || !value) return;
 
-    includedLabels.push(label);
-    promptParts.push(`${label}: ${value}`);
+    const localizedLabel = translate(locale, labelKeys[label] ?? label);
+    includedLabels.push(localizedLabel);
+    promptParts.push(`${localizedLabel}: ${value}`);
     prompts.push({
-      label: `Raw + ${includedLabels.join(' + ')}`,
-      prompt: promptParts.join('\n\n'),
+      label: translate(locale, 'rawPlus', { labels: includedLabels.join(' + ') }),
+      prompt: withInstruction(promptParts.join('\n\n')),
     });
   });
 
@@ -30,13 +36,14 @@ export function promptPreviewVisibleAfter(event, currentlyVisible = true) {
     case 'checkbox-change':
     case 'preset-selected':
     case 'clear':
+    case 'language-change':
       return true;
     default:
       return currentlyVisible;
   }
 }
 
-export async function runComparison(prompts, request, onUpdate, isCurrent) {
+export async function runComparison(prompts, request, onUpdate, isCurrent, messages = {}) {
   const states = prompts.map(() => ({ status: 'waiting', response: '', error: '' }));
   const publish = () => onUpdate(states.map(state => ({ ...state })));
   publish();
@@ -56,7 +63,7 @@ export async function runComparison(prompts, request, onUpdate, isCurrent) {
       states[index] = { status: 'error', response: '', error: error.message || 'Could not generate a response.' };
       if (error.status === 429) {
         for (let pending = index + 1; pending < prompts.length; pending++) {
-          states[pending] = { status: 'error', response: '', error: 'Not sent because a rate limit was reached.' };
+          states[pending] = { status: 'error', response: '', error: messages.rateLimit || 'Not sent because a rate limit was reached.' };
         }
         publish();
         break;

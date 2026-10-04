@@ -1,29 +1,17 @@
 import { buildComparisonPrompts, promptPreviewVisibleAfter, runComparison } from './comparison.mjs';
+import { getPreset, normalizeLocale, serverErrorMessage, translate } from './i18n.mjs';
 
 const form = document.getElementById('prompt-form');
 const rawPromptInput = document.getElementById('raw-prompt');
 const presetSelect = document.getElementById('preset-select');
 const clearButton = document.getElementById('clear-button');
-const presets = {
-  one: {
-    prompt: 'What should I pack for a day hike? Answer in one sentence.',
-    context: 'It will be hot and there is no drinking water on the trail.',
-    role: 'Act as an experienced hiking guide.',
-    constraints: 'Name three essentials in 18 words or fewer.',
-  },
-  two: {
-    prompt: 'What is a variable in programming? Answer in one sentence.',
-    context: 'I am new to programming and have not used variables before.',
-    role: 'Act as a patient programming instructor.',
-    constraints: 'Use one concrete everyday example in 20 words or fewer.',
-  },
-  three: {
-    prompt: 'Write me a reminder message. Answer in one sentence.',
-    context: 'A classmate borrowed my notes last week, and I need them tomorrow.',
-    role: 'Write as a friendly classmate.',
-    constraints: 'Be polite and direct. Use 18 words or fewer.',
-  },
-};
+const languageSelect = document.getElementById('language-select');
+let locale = 'en';
+try {
+  locale = normalizeLocale(globalThis.localStorage?.getItem('prompt-mixer-language'));
+} catch {
+  locale = 'en';
+}
 const outputText = document.getElementById('output-text');
 const outputSection = document.querySelector('.output-section');
 const generateButton = document.getElementById('generate-response');
@@ -36,6 +24,22 @@ const japaneseCharacterPattern = new RegExp(japaneseCharacterClass, 'u');
 const japaneseRunPattern = new RegExp(`(${japaneseCharacterClass}+)`, 'gu');
 const pdfJapaneseFontFile = 'NotoSansJP-Regular.otf';
 let pdfJapaneseFontPromise;
+
+function applyTranslations() {
+  document.documentElement.lang = locale;
+  document.querySelectorAll('[data-i18n]').forEach(element => {
+    element.textContent = translate(locale, element.dataset.i18n);
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(element => {
+    element.placeholder = translate(locale, element.dataset.i18nPlaceholder);
+  });
+  presetSelect.setAttribute('aria-label', translate(locale, 'choosePreset'));
+  clearButton.setAttribute('aria-label', translate(locale, 'clearAria'));
+  languageSelect.setAttribute('aria-label', translate(locale, 'languageAria'));
+}
+
+languageSelect.value = locale;
+applyTranslations();
 
 globalThis.pdfMake.addFonts({
   NotoSansJP: {
@@ -80,17 +84,17 @@ function getOptionalFieldConfigs() {
     {
       enabled: document.getElementById('include-context'),
       input: document.getElementById('context-input'),
-      label: 'Context',
+      label: 'context',
     },
     {
       enabled: document.getElementById('include-role'),
       input: document.getElementById('role-input'),
-      label: 'Role',
+      label: 'role',
     },
     {
       enabled: document.getElementById('include-constraints'),
       input: document.getElementById('constraints-input'),
-      label: 'Constraints',
+      label: 'constraints',
     },
   ];
 }
@@ -134,31 +138,24 @@ getOptionalFieldConfigs().forEach(({ enabled, input }) => {
   });
 });
 
+function currentOptionalFields() {
+  return getOptionalFieldConfigs().map(({ enabled, input, label }) => ({
+    enabled: enabled.checked,
+    input: input.value,
+    label,
+  }));
+}
+
 function buildPrompt() {
-  const rawPrompt = rawPromptInput.value.trim();
-
-  if (!rawPrompt) {
-    return null;
-  }
-
-  const parts = [rawPrompt];
-
-  getOptionalFieldConfigs().forEach(({ enabled, input, label }) => {
-    const value = input.value.trim();
-
-    if (enabled.checked && value) {
-      parts.push(`${label}: ${value}`);
-    }
-  });
-
-  return parts.join('\n\n');
+  const prompts = buildComparisonPrompts(rawPromptInput.value, currentOptionalFields(), locale);
+  return prompts.at(-1)?.prompt ?? null;
 }
 
 function renderPrompt() {
   const assembledPrompt = buildPrompt();
 
   if (!assembledPrompt) {
-    outputText.textContent = 'Ready to mix';
+    outputText.textContent = translate(locale, 'ready');
     rawPromptInput.setCustomValidity('');
     return null;
   }
@@ -186,12 +183,12 @@ function clearResponse() {
   responseSection.setAttribute('aria-busy', 'false');
   responseCards.replaceChildren();
   responseCards.hidden = true;
-  responseStatus.textContent = 'Generate a response to compare the effect of your selected instructions.';
+  responseStatus.textContent = translate(locale, 'initialStatus');
 }
 
 function clearOutputs() {
   clearResponse();
-  outputText.textContent = 'Ready to mix';
+  outputText.textContent = translate(locale, 'ready');
 }
 
 form.addEventListener('input', () => {
@@ -214,10 +211,21 @@ clearButton.addEventListener('click', () => {
   rawPromptInput.focus();
 });
 
+languageSelect.addEventListener('change', () => {
+  locale = normalizeLocale(languageSelect.value);
+  try {
+    globalThis.localStorage?.setItem('prompt-mixer-language', locale);
+  } catch {}
+  applyTranslations();
+  updatePromptPreviewVisibility('language-change');
+  clearResponse();
+  renderPrompt();
+});
+
 presetSelect.addEventListener('change', () => {
   updatePromptPreviewVisibility('preset-selected');
   clearResponse();
-  const preset = presets[presetSelect.value];
+  const preset = getPreset(locale, presetSelect.value);
   if (!preset) return;
 
   rawPromptInput.value = preset.prompt;
@@ -239,22 +247,18 @@ generateButton.addEventListener('click', async () => {
   if (!combinedPrompt) {
     updatePromptPreviewVisibility('validation-failed');
     rawPromptInput.focus();
-    rawPromptInput.setCustomValidity('Please enter a raw prompt.');
+    rawPromptInput.setCustomValidity(translate(locale, 'rawRequired'));
     rawPromptInput.reportValidity();
     return;
   }
 
-  const prompts = buildComparisonPrompts(rawPromptInput.value, getOptionalFieldConfigs().map(({ enabled, input, label }) => ({
-    enabled: enabled.checked,
-    input: input.value,
-    label,
-  })));
+  const prompts = buildComparisonPrompts(rawPromptInput.value, currentOptionalFields(), locale);
   const run = { controller: new AbortController() };
   activeRun = run;
   updatePromptPreviewVisibility('valid-generation');
   generateButton.disabled = true;
   responseSection.setAttribute('aria-busy', 'true');
-  responseStatus.textContent = `Generating ${prompts.length} responses…`;
+  responseStatus.textContent = translate(locale, 'generatingCount', { count: prompts.length });
   responseCards.hidden = false;
 
   const cards = createResponseCards(prompts);
@@ -262,15 +266,29 @@ generateButton.addEventListener('click', async () => {
 
   try {
     const states = await runComparison(prompts, async prompt => {
-      const result = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt }),
-        signal: run.controller.signal,
-      });
-      const data = await result.json();
+      let result;
+      try {
+        result = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt, locale }),
+          signal: run.controller.signal,
+        });
+      } catch (cause) {
+        if (run.controller.signal.aborted) throw cause;
+        throw new Error(serverErrorMessage(locale, 'upstream_unavailable'));
+      }
+
+      let data;
+      try {
+        data = await result.json();
+      } catch {
+        const error = new Error(serverErrorMessage(locale, 'upstream_unavailable'));
+        if (!result.ok) error.status = result.status;
+        throw error;
+      }
       if (!result.ok) {
-        const error = new Error(data.error || 'Could not generate a response.');
+        const error = new Error(data.error || serverErrorMessage(locale, data.errorCode));
         error.status = result.status;
         throw error;
       }
@@ -280,17 +298,17 @@ generateButton.addEventListener('click', async () => {
       updateResponseCards(cards, nextStates);
       const loadingIndex = nextStates.findIndex(state => state.status === 'loading');
       if (loadingIndex !== -1) {
-        responseStatus.textContent = `Generating response ${loadingIndex + 1} of ${prompts.length}…`;
+        responseStatus.textContent = translate(locale, 'generatingCard', { current: loadingIndex + 1, count: prompts.length });
       }
-    }, () => activeRun === run);
+    }, () => activeRun === run, { rateLimit: translate(locale, 'rateStopped') });
 
     if (activeRun === run) {
       updateResponseCards(cards, states);
       const succeeded = states.filter(state => state.status === 'success').length;
       const failed = states.filter(state => state.status === 'error').length;
       responseStatus.textContent = failed
-        ? `${succeeded} of ${prompts.length} responses generated; ${failed} could not be generated.`
-        : `${succeeded} responses generated.`;
+        ? translate(locale, 'partialSummary', { succeeded, count: prompts.length, failed })
+        : translate(locale, 'successSummary', { count: succeeded });
     }
   } finally {
     if (activeRun === run) {
@@ -303,6 +321,7 @@ generateButton.addEventListener('click', async () => {
 
 function createResponseCards(prompts) {
   return prompts.map(({ label, prompt }, index) => {
+    const cardLocale = locale;
     const element = document.createElement('article');
     element.className = 'response-card';
     element.setAttribute('aria-busy', 'false');
@@ -315,15 +334,15 @@ function createResponseCards(prompts) {
     download.className = 'card-download';
     download.type = 'button';
     download.disabled = true;
-    download.setAttribute('aria-label', 'Download response as PDF');
-    download.setAttribute('title', 'Download response as PDF');
+    download.setAttribute('aria-label', translate(cardLocale, 'downloadPdf'));
+    download.setAttribute('title', translate(cardLocale, 'downloadPdf'));
     download.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>';
     download.addEventListener('click', async () => {
       if (!download.disabled && card.response !== undefined) {
         try {
-          await downloadResponsePdf(label, prompt, card.response);
+          await downloadResponsePdf(label, prompt, card.response, cardLocale);
         } catch {
-          status.textContent = 'Could not create the PDF. Please try again.';
+          responseStatus.textContent = translate(cardLocale, 'pdfError');
         }
       }
     });
@@ -331,7 +350,7 @@ function createResponseCards(prompts) {
     const promptDetails = document.createElement('details');
     promptDetails.className = 'exact-prompt';
     const summary = document.createElement('summary');
-    summary.textContent = 'Exact prompt';
+    summary.textContent = translate(cardLocale, 'exactPrompt');
     const promptText = document.createElement('pre');
     promptText.textContent = prompt;
     promptDetails.append(summary, promptText);
@@ -343,19 +362,19 @@ function createResponseCards(prompts) {
     const toggle = document.createElement('button');
     toggle.className = 'answer-toggle';
     toggle.type = 'button';
-    toggle.textContent = 'Show more';
+    toggle.textContent = translate(cardLocale, 'showMore');
     toggle.setAttribute('aria-expanded', 'false');
     toggle.setAttribute('aria-controls', answer.id);
     toggle.hidden = true;
     toggle.addEventListener('click', () => {
       const expanded = toggle.getAttribute('aria-expanded') === 'true';
       toggle.setAttribute('aria-expanded', String(!expanded));
-      toggle.textContent = expanded ? 'Show more' : 'Show less';
+      toggle.textContent = translate(cardLocale, expanded ? 'showMore' : 'showLess');
       answer.classList.toggle('is-collapsed', expanded);
     });
 
     const answerLabel = document.createElement('h4');
-    answerLabel.textContent = 'Response';
+    answerLabel.textContent = translate(cardLocale, 'response');
     const responseContent = document.createElement('section');
     responseContent.className = 'card-response';
     responseContent.setAttribute('aria-labelledby', `response-heading-${index + 1}`);
@@ -364,7 +383,7 @@ function createResponseCards(prompts) {
     const status = document.createElement('p');
     status.className = 'card-status';
     status.setAttribute('role', 'status');
-    status.textContent = 'Waiting to generate.';
+    status.textContent = translate(cardLocale, 'waiting');
 
     responseContent.append(answerLabel, status, answer, toggle);
     element.append(heading, download, promptDetails, responseContent);
@@ -373,8 +392,11 @@ function createResponseCards(prompts) {
   });
 }
 
-async function downloadResponsePdf(label, prompt, response) {
-  if (japaneseCharacterPattern.test(`${prompt}${response}`)) {
+async function downloadResponsePdf(label, prompt, response, cardLocale) {
+  const pdfTitle = translate(cardLocale, 'pdfTitle');
+  const exactPromptHeading = translate(cardLocale, 'pdfExactPrompt');
+  const responseHeading = translate(cardLocale, 'pdfResponse');
+  if (japaneseCharacterPattern.test(`${label}${pdfTitle}${exactPromptHeading}${responseHeading}${prompt}${response}`)) {
     await loadPdfJapaneseFont();
   }
   const safeLabel = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'response';
@@ -389,15 +411,15 @@ async function downloadResponsePdf(label, prompt, response) {
       section: { fontSize: 12, bold: true, margin: [0, 12, 0, 5] },
     },
     content: [
-      { text: 'Prompt Mixer', style: 'title' },
-      { text: label, style: 'cardLabel' },
-      { text: 'Exact submitted prompt', style: 'section' },
+      { text: pdfTextRuns('Prompt Mixer'), style: 'title' },
+      { text: pdfTextRuns(label), style: 'cardLabel' },
+      { text: pdfTextRuns(exactPromptHeading), style: 'section' },
       { text: pdfTextRuns(prompt), preserveLeadingSpaces: true },
-      { text: 'Response', style: 'section' },
+      { text: pdfTextRuns(responseHeading), style: 'section' },
       { text: pdfTextRuns(response), preserveLeadingSpaces: true },
     ],
   };
-  globalThis.pdfMake.createPdf(definition).download(`prompt-mixer-${safeLabel}.pdf`);
+  await globalThis.pdfMake.createPdf(definition).download(`prompt-mixer-${safeLabel}.pdf`);
 }
 
 function updateResponseCards(cards, states) {
@@ -409,14 +431,14 @@ function updateResponseCards(cards, states) {
     element.setAttribute('aria-busy', String(state.status === 'loading'));
     download.disabled = state.status !== 'success';
     if (state.status === 'loading') {
-      status.textContent = 'Generating…';
+      status.textContent = translate(locale, 'generating');
     } else if (state.status === 'success') {
-      status.textContent = 'Response generated.';
+      status.textContent = translate(locale, 'generated');
       if (card.lastStatus !== 'success') {
         card.response = state.response;
         answer.textContent = state.response;
         answer.classList.add('is-collapsed');
-        toggle.textContent = 'Show more';
+        toggle.textContent = translate(locale, 'showMore');
         toggle.setAttribute('aria-expanded', 'false');
         toggle.hidden = answer.scrollHeight <= answer.clientHeight + 1;
       }
