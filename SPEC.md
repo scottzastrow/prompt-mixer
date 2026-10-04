@@ -12,6 +12,8 @@ One click generates a comparison run in this order: the raw prompt alone, then o
 
 Each response card has its own loading, success, or error state. A failed request does not clear successful answers or prevent later requests from running, except that a rate-limit response stops the remaining requests. Each prompt is a separate server request and counts against the existing server rate limits. Prevent duplicate runs while generation is active.
 
+Each response card has a compact download icon button in its upper-right corner, using the supplied download SVG, with accessible label and tooltip “Download response as PDF”. Keep it disabled until that card succeeds. Clicking it downloads a real PDF directly, with no print dialog and no additional AI request or database write. The PDF contains the Prompt Mixer title, card label, exact submitted prompt, and complete AI response. Export all text regardless of the exact-prompt disclosure or answer expansion state, without changing either state. Preserve paragraphs and line breaks, wrap long text, support Unicode, and paginate long content without clipping. Use a maintained PDF library served locally under the existing Content Security Policy and give each file a meaningful filesystem-safe name.
+
 Editing a prompt field, changing a checkbox or preset, or clicking Clear cancels the current run and clears its results. Responses from a canceled or superseded run must never appear. Preserve checkbox behavior, the live combined-prompt preview, server-side credentials, safe OpenAI diagnostics, rate limits, and non-fatal database logging for each successful response.
 
 Treat Combined prompt as a pre-generation preview. Keep it visible when validation prevents generation. Hide the entire preview section as soon as a valid Generate Response run starts, because each response card displays its exact prompt. Restore the live preview when any prompt input or checkbox changes, a preset is selected, or Clear is clicked. Place the existing compact, left-aligned Generate Response button after Combined prompt and before Response comparison, outside the preview section. Keep this order in the DOM so keyboard navigation matches the visual order, and keep the button visible while the preview is hidden. In each card, keep the title and collapsible Exact prompt before a Response section; put loading and error messages directly below the Response heading and show successful answer text in that same section.
@@ -46,12 +48,16 @@ Confirmed live diagnosis: `response_status=incomplete`, `incomplete_details.reas
 10. Each comparison request counts separately against the existing server limits; blocked requests return 429 without contacting OpenAI.
 11. Loading or editing the page does not expose an API key; server credentials, diagnostics, and successful-response database logging remain intact.
 12. An unavailable API returns a visible per-card error without losing inputs or other successful answers.
+13. Every card has the specified accessible download control; it remains disabled while waiting or after failure and is enabled only after success.
+14. Downloading exports the full prompt and response, including Unicode, paragraphs, and text hidden by collapsed UI, while preserving the onscreen expansion state; it does not issue an API request or database write.
+15. Long PDF content wraps and paginates, filenames are filesystem-safe, and all PDF assets load locally without weakening CSP.
 
 ## Immediate tasks
 
 1. Build sequential cumulative prompt generation and independent response cards.
 2. Verify cancellation, per-card failures, rate-limit stopping, and accessible previews.
-3. Run the automated suite and manually verify the responsive comparison workflow.
+3. Add per-card direct PDF downloads and verify full-content export without additional generation requests.
+4. Run the automated suite and manually verify the responsive comparison workflow and PDF downloads.
 ## Homework 4: Live prompt mixing
 
 Classroom testing showed that the checkboxes and Show Mix button were confusing. Presets filled optional fields without selecting them, leaving users unsure which text would be sent.
