@@ -96,6 +96,7 @@ test('renders response states below Response and hides/restores the prompt previ
   const registeredFonts = [];
   const virtualFontFiles = [];
   const requestBodies = [];
+  let rejectNextFetch = null;
   let generationRequests = 0;
   globalThis.pdfMake = {
     addFonts: fonts => registeredFonts.push(fonts),
@@ -106,9 +107,15 @@ test('renders response states below Response and hides/restores the prompt previ
     if (url === '/fonts/NotoSansJP-Regular.otf') {
       return Promise.resolve({ ok: true, arrayBuffer: async () => new Uint8Array([1]).buffer });
     }
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
       generationRequests += 1;
       requestBodies.push(options.body);
+      if (rejectNextFetch) {
+        const error = rejectNextFetch;
+        rejectNextFetch = null;
+        reject(error);
+        return;
+      }
       fetchResolvers.push(result => resolve(result));
     });
   };
@@ -273,6 +280,26 @@ test('renders response states below Response and hides/restores the prompt previ
     }) });
     await errorGeneration;
     assert.match(elements.get('response-cards').children[0].children[3].children[1].textContent, /AIが混み合っています|AIが混み合っているか/);
+
+    rejectNextFetch = new TypeError('Failed to fetch');
+    const networkFailureGeneration = run();
+    await networkFailureGeneration;
+    const networkFailure = elements.get('response-cards').children[0].children[3].children[1].textContent;
+    assert.equal(networkFailure, 'AIの回答を利用できません。もう一度お試しください。');
+    assert.ok(!networkFailure.includes('Failed to fetch'));
+
+    const parseFailureGeneration = run();
+    fetchResolvers.shift()({ ok: true, status: 200, json: async () => { throw new SyntaxError('Unexpected token'); } });
+    await parseFailureGeneration;
+    assert.equal(elements.get('response-cards').children[0].children[3].children[1].textContent, 'AIの回答を利用できません。もう一度お試しください。');
+
+    elements.get('include-context').checked = true;
+    const requestsBeforeMalformedRateLimit = generationRequests;
+    const malformedRateLimitGeneration = run();
+    fetchResolvers.shift()({ ok: false, status: 429, json: async () => { throw new SyntaxError('Unexpected token'); } });
+    await malformedRateLimitGeneration;
+    assert.equal(generationRequests, requestsBeforeMalformedRateLimit + 1, 'a malformed 429 response still stops later requests');
+    assert.equal(elements.get('response-cards').children[1].children[3].children[1].textContent, '利用上限に達したため送信されませんでした。');
 
     elements.get('clear-button').trigger('click');
     assert.equal(languageSelect.value, 'ja', 'Clear preserves the selected language');

@@ -266,13 +266,27 @@ generateButton.addEventListener('click', async () => {
 
   try {
     const states = await runComparison(prompts, async prompt => {
-      const result = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, locale }),
-        signal: run.controller.signal,
-      });
-      const data = await result.json();
+      let result;
+      try {
+        result = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt, locale }),
+          signal: run.controller.signal,
+        });
+      } catch (cause) {
+        if (run.controller.signal.aborted) throw cause;
+        throw new Error(serverErrorMessage(locale, 'upstream_unavailable'));
+      }
+
+      let data;
+      try {
+        data = await result.json();
+      } catch {
+        const error = new Error(serverErrorMessage(locale, 'upstream_unavailable'));
+        if (!result.ok) error.status = result.status;
+        throw error;
+      }
       if (!result.ok) {
         const error = new Error(data.error || serverErrorMessage(locale, data.errorCode));
         error.status = result.status;
