@@ -106,7 +106,7 @@ test('renders response states below Response and hides/restores the prompt previ
     const generate = elements.get('generate-response');
     const run = () => generate.trigger('click');
 
-    elements.get('raw-prompt').value = 'Explain tides – café Ω 東京.\nSecond prompt line.';
+    elements.get('raw-prompt').value = 'Explain tides – café Ω 東京 コーヒー.\nSecond prompt line.';
     elements.get('context-input').value = 'Near the coast.';
     elements.get('include-context').checked = true;
     elements.get('role-input').value = 'A science teacher.';
@@ -167,10 +167,11 @@ test('renders response states below Response and hides/restores the prompt previ
     assert.match(pdfText, /Raw only/);
     const promptRuns = pdfDownloads[0].definition.content[3].text;
     const responseRuns = pdfDownloads[0].definition.content[5].text;
-    assert.equal(promptRuns.map(run => run.text).join(''), 'Explain tides – café Ω 東京.\nSecond prompt line.');
+    assert.equal(promptRuns.map(run => run.text).join(''), 'Explain tides – café Ω 東京 コーヒー.\nSecond prompt line.');
     assert.equal(responseRuns.map(run => run.text).join(''), 'First line α.\n\nSecond line 東京.');
     assert.ok(promptRuns.some(run => run.text.includes('café Ω') && run.font === 'Roboto'));
     assert.ok(promptRuns.some(run => run.text === '東京' && run.font === 'NotoSansJP'));
+    assert.ok(promptRuns.some(run => run.text === 'コーヒー' && run.font === 'NotoSansJP'));
 
     elements.get('context-input').value = '';
     elements.get('include-context').checked = false;

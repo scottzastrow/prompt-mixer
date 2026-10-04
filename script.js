@@ -31,6 +31,9 @@ const responseSection = document.querySelector('.response-section');
 const responseStatus = document.getElementById('response-status');
 const responseCards = document.getElementById('response-cards');
 let activeRun = null;
+const japaneseCharacterClass = String.raw`[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script_Extensions=Hiragana}\p{Script_Extensions=Katakana}\u3000-\u303f\uff00-\uffef]`;
+const japaneseCharacterPattern = new RegExp(japaneseCharacterClass, 'u');
+const japaneseRunPattern = new RegExp(`(${japaneseCharacterClass}+)`, 'gu');
 const pdfJapaneseFontFile = 'NotoSansJP-Regular.otf';
 let pdfJapaneseFontPromise;
 
@@ -64,13 +67,11 @@ async function loadPdfJapaneseFont() {
 }
 
 function pdfTextRuns(text) {
-  return text.split(/([\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\u3000-\u303f\uff00-\uffef]+)/gu)
+  return text.split(japaneseRunPattern)
     .filter(Boolean)
     .map(run => ({
       text: run,
-      font: /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\u3000-\u303f\uff00-\uffef]/u.test(run)
-        ? 'NotoSansJP'
-        : 'Roboto',
+      font: japaneseCharacterPattern.test(run) ? 'NotoSansJP' : 'Roboto',
     }));
 }
 
@@ -373,7 +374,7 @@ function createResponseCards(prompts) {
 }
 
 async function downloadResponsePdf(label, prompt, response) {
-  if (/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\u3000-\u303f\uff00-\uffef]/u.test(`${prompt}${response}`)) {
+  if (japaneseCharacterPattern.test(`${prompt}${response}`)) {
     await loadPdfJapaneseFont();
   }
   const safeLabel = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'response';
