@@ -342,6 +342,9 @@ textarea:focus-visible {
 .follow-up-offer { margin: 0 0 10px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
 .follow-up-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .follow-up-actions button { min-height: 36px; padding: 7px 12px; border: 1px solid var(--primary-border); border-radius: 6px; background: #fff; color: var(--primary); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.follow-up-retry { min-height: 34px; margin-top: 8px; padding: 6px 10px; border: 1px solid var(--stroke); border-radius: 6px; background: #fff; color: var(--label); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.follow-up-retry:hover, .follow-up-retry:focus-visible { border-color: var(--primary); color: var(--primary); }
+.follow-up-retry:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .follow-up-actions button:first-child { background: var(--primary); color: #fff; }
 .follow-up-actions button:hover:not(:disabled), .follow-up-actions button:focus-visible { filter: brightness(.96); }
 .follow-up-actions button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }

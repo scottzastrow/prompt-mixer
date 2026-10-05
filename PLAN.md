@@ -25,16 +25,30 @@ Build one screen that shows how optional prompt instructions affect the text sen
 - **Later experiment:** Add a History interface so stored interactions can be reviewed without direct database access.
 - **Iteration 8 (in progress):** Use OpenAI Structured Outputs with a strict JSON Schema for each answer and nullable follow-up offer; do not infer offers from answer wording. Add one optional Yes/No follow-up per card through the existing server-side limits, token settings, and non-fatal experiment logger. Cancel pending follow-ups when the comparison is invalidated, retain original answers after follow-up errors, localize the controls and states, and append completed follow-up prompts/answers to the card PDF. Verify through mocked OpenAI responses without credentials; production live verification remains a separate deployment check.
 - **Iteration 8 (implemented):** Use OpenAI Structured Outputs with a strict JSON Schema for each answer and nullable follow-up offer; do not infer offers from answer wording. Add one optional Yes/No follow-up per card through the existing server-side limits, token settings, and non-fatal experiment logger. Cancel pending follow-ups when the comparison is invalidated, retain original answers after follow-up errors, localize the controls and states, and append completed follow-up prompts/answers to the card PDF. Automated tests pass with mocked OpenAI responses and no credentials; production live verification remains a separate deployment check.
+- **Iteration 9 (in progress):** Replace the single-follow-up limit with explicit user-driven turns per card. Send ordered structured history to the server; return a new structured offer after every answer; support retrying only failed turns; enforce eight completed follow-up turns and 24,000 Unicode code points of conversation text per card on the server (plus a 200 KB request-body ceiling). Keep cards independent, preserve cancellation/localization/rate limits/logging, and export all completed turns in order with expandable answers.
+- **Iteration 9 (implemented):** Replace the single-follow-up limit with explicit user-driven turns per card. Send ordered structured history to the server; return a new structured offer after every answer; support retrying only failed turns; enforce eight completed follow-up turns and 24,000 Unicode code points of conversation text per card on the server (plus a 200 KB request-body ceiling). Keep cards independent, preserve cancellation/localization/rate limits/logging, and export all completed turns in order with expandable answers. Automated tests pass with simulated responses and no API key.
 - **Later experiment:** Add a History interface so stored interactions can be reviewed without direct database access.
 
 ## Iteration 8 verification
 
 - Verify the Responses API request uses a supported strict JSON Schema with a required string answer and nullable `{ offer, prompt }` follow-up; follow-up-answer requests require `follow_up: null`.
+- Verify every Responses API answer, including follow-up answers, uses a supported strict JSON Schema with a required string answer and nullable `{ offer, prompt }` follow-up.
 - Verify Yes sends one separate server request containing the card's exact original prompt, original answer, and offered next prompt; No makes no request.
+- Verify Yes sends one separate server request containing the card's original prompt, original answer, ordered completed turns, and offered next prompt; No makes no request.
 - Verify no-offer responses omit follow-up controls, duplicate Yes submissions are blocked, follow-up failures preserve the original answer, and 429 responses use existing limits.
 - Verify field edits, preset selection, Clear, and language changes abort pending follow-ups and discard stale results; verify English/Japanese UI strings.
 - Verify a completed follow-up exports its exact prompt and full answer in the existing PDF without another AI request or database write.
+- Verify all completed follow-up prompts and full answers export in order in the existing PDF without another AI request or database write.
 - Use mocked API responses only for local checks, then run `npm test` and `git diff --check`; live Lightsail verification is not part of local testing.
+
+## Iteration 9 verification
+
+- Verify every answer uses Structured Outputs with a nullable structured offer and only a deliberate Yes sends the next turn; No only dismisses that offer.
+- Verify each card sends its own ordered history, supports multiple offers, blocks duplicate in-flight submissions, and retries failed turns without duplicating successful turns.
+- Verify the server rejects more than 8 completed follow-up turns or more than 24,000 Unicode code points of conversation text with a localized start-new-prompt error; reject request bodies over 200 KB.
+- Verify cancellation prevents stale turn results, English/Japanese strings and answers are preserved, and long follow-up answers have accessible Show more / Show less controls.
+- Verify PDFs include the exact original prompt, answer, and every completed follow-up prompt/answer in order, without another request.
+- Use simulated responses without an API key, then run `npm test` and `git diff --check`.
 
 ## Known dependency
 

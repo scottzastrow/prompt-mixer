@@ -330,9 +330,11 @@ function createResponseCards(prompts, revision) {
   return prompts.map(({ label, prompt }, index) => {
     const cardLocale = locale;
     const element = document.createElement('article');
+    const cardId = `response-card-${revision}-${index + 1}`;
+    element.id = cardId;
     element.className = 'response-card';
     element.setAttribute('aria-busy', 'false');
-    const card = { response: undefined, followUp: null, followUpRequested: false, completedFollowUp: null };
+    const card = { id: cardId, response: undefined, followUp: null, turns: [], followUpDismissed: false, initialOfferRendered: false };
 
     const heading = document.createElement('h3');
     heading.textContent = label;
@@ -347,7 +349,7 @@ function createResponseCards(prompts, revision) {
     download.addEventListener('click', async () => {
       if (!download.disabled && card.response !== undefined) {
         try {
-          await downloadResponsePdf(label, prompt, card.response, cardLocale, card.completedFollowUp);
+          await downloadResponsePdf(label, prompt, card.response, cardLocale, card.turns.filter(turn => turn.status === 'success'));
         } catch {
           responseStatus.textContent = translate(cardLocale, 'pdfError');
         }
@@ -396,51 +398,95 @@ function createResponseCards(prompts, revision) {
     const followUpArea = document.createElement('section');
     followUpArea.className = 'follow-up-section';
     followUpArea.hidden = true;
-    const followUpTitle = document.createElement('h4');
-    followUpTitle.textContent = translate(cardLocale, 'followUp');
-    const offer = document.createElement('p');
-    offer.className = 'follow-up-offer';
-    const followUpActions = document.createElement('div');
-    followUpActions.className = 'follow-up-actions';
-    const yesButton = document.createElement('button');
-    yesButton.type = 'button';
-    yesButton.textContent = translate(cardLocale, 'followUpYes');
-    const noButton = document.createElement('button');
-    noButton.type = 'button';
-    noButton.textContent = translate(cardLocale, 'followUpNo');
-    const followUpStatus = document.createElement('p');
-    followUpStatus.className = 'follow-up-status';
-    followUpStatus.setAttribute('role', 'status');
-    const followUpAnswer = document.createElement('div');
-    followUpAnswer.className = 'follow-up-answer';
-    followUpAnswer.hidden = true;
-    yesButton.addEventListener('click', () => requestFollowUp(card, cardLocale, revision));
-    noButton.addEventListener('click', () => {
-      card.followUpDismissed = true;
-      followUpArea.hidden = true;
-    });
-    followUpActions.append(yesButton, noButton);
-    followUpArea.append(followUpTitle, offer, followUpActions, followUpStatus, followUpAnswer);
     responseContent.append(followUpArea);
     element.append(heading, download, promptDetails, responseContent);
     Object.assign(card, {
-      element, status, answer, toggle, download, prompt, followUpArea, offer,
-      yesButton, noButton, followUpStatus, followUpAnswer, lastStatus: 'waiting',
+      element, status, answer, toggle, download, prompt, followUpArea, cardLocale,
+      revision, lastStatus: 'waiting',
     });
     return card;
   });
 }
 
-async function requestFollowUp(card, cardLocale, revision) {
-  if (!card.followUp || card.followUpRequested || card.followUpDismissed || revision !== responseRevision) return;
+function createFollowUpOffer(card, parent, offer, turnNumber, revision, isRoot = false) {
+  const panel = isRoot ? parent : document.createElement('section');
+  panel.className = 'follow-up-section';
+  panel.setAttribute('aria-busy', 'false');
+  const title = document.createElement('h4');
+  title.textContent = translate(card.cardLocale, 'followUpTurn', { count: turnNumber });
+  const offerText = document.createElement('p');
+  offerText.className = 'follow-up-offer';
+  offerText.textContent = offer.offer;
+  const actions = document.createElement('div');
+  actions.className = 'follow-up-actions';
+  const yes = document.createElement('button');
+  yes.type = 'button';
+  yes.textContent = translate(card.cardLocale, 'followUpYes');
+  const no = document.createElement('button');
+  no.type = 'button';
+  no.textContent = translate(card.cardLocale, 'followUpNo');
+  actions.append(yes, no);
 
-  card.followUpRequested = true;
-  card.yesButton.disabled = true;
-  card.noButton.disabled = true;
-  card.followUpExactPrompt = `${translate(cardLocale, 'exactPrompt')}:\n${card.prompt}\n\n${translate(cardLocale, 'response')}:\n${card.response}\n\n${translate(cardLocale, 'followUpPrompt')}:\n${card.followUp.prompt}`;
-  card.followUpStatus.textContent = translate(cardLocale, 'followUpLoading');
-  card.followUpArea.setAttribute('aria-busy', 'true');
+  const status = document.createElement('p');
+  status.className = 'follow-up-status';
+  status.setAttribute('role', 'status');
+  const answer = document.createElement('div');
+  answer.className = 'follow-up-answer answer-preview is-collapsed';
+  answer.id = `${card.id}-follow-up-answer-turn-${turnNumber}`;
+  answer.hidden = true;
+  const toggle = document.createElement('button');
+  toggle.className = 'answer-toggle';
+  toggle.type = 'button';
+  toggle.textContent = translate(card.cardLocale, 'showMore');
+  toggle.setAttribute('aria-expanded', 'false');
+  toggle.setAttribute('aria-controls', answer.id);
+  toggle.hidden = true;
+  toggle.addEventListener('click', () => {
+    const expanded = toggle.getAttribute('aria-expanded') === 'true';
+    toggle.setAttribute('aria-expanded', String(!expanded));
+    toggle.textContent = translate(card.cardLocale, expanded ? 'showMore' : 'showLess');
+    answer.classList.toggle('is-collapsed', expanded);
+  });
+  const retry = document.createElement('button');
+  retry.className = 'follow-up-retry';
+  retry.type = 'button';
+  retry.textContent = translate(card.cardLocale, 'followUpRetry');
+  retry.hidden = true;
+  const nextContainer = document.createElement('div');
+  nextContainer.className = 'follow-up-chain';
+  panel.append(title, offerText, actions, status, answer, toggle, retry, nextContainer);
+  if (!isRoot) parent.append(panel);
+
+  const turn = {
+    prompt: offer.prompt, status: 'offered', response: '', offer: null,
+    panel, statusElement: status, answerElement: answer, toggle, retry,
+    actions, nextContainer, turnNumber, revision,
+  };
+  yes.addEventListener('click', () => {
+    if (turn.status !== 'offered') return;
+    card.turns.push(turn);
+    return requestFollowUpTurn(card, turn);
+  });
+  no.addEventListener('click', () => {
+    if (turn.status !== 'offered') return;
+    turn.status = 'dismissed';
+    panel.hidden = true;
+    if (isRoot) card.followUpDismissed = true;
+  });
+  retry.addEventListener('click', () => requestFollowUpTurn(card, turn));
+  return turn;
+}
+
+async function requestFollowUpTurn(card, turn) {
+  if (turn.status === 'loading' || turn.status === 'success' || turn.revision !== responseRevision) return;
+
+  turn.status = 'loading';
+  turn.actions.hidden = true;
+  turn.retry.hidden = true;
+  turn.statusElement.textContent = translate(card.cardLocale, 'followUpLoading');
+  turn.panel.setAttribute('aria-busy', 'true');
   const controller = new AbortController();
+  turn.controller = controller;
   activeFollowUps.add(controller);
 
   try {
@@ -448,45 +494,69 @@ async function requestFollowUp(card, cardLocale, revision) {
     try {
       result = await fetch('/api/follow-up', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: card.followUpExactPrompt, locale: cardLocale }),
+        headers: { 'Content-Type': 'application/json', 'X-UI-Locale': card.cardLocale },
+        body: JSON.stringify({
+          originalPrompt: card.prompt,
+          originalResponse: card.response,
+          history: card.turns.filter(item => item !== turn && item.status === 'success')
+            .map(item => ({ prompt: item.prompt, response: item.response })),
+          nextPrompt: turn.prompt,
+          locale: card.cardLocale,
+        }),
         signal: controller.signal,
       });
     } catch (cause) {
       if (controller.signal.aborted) return;
-      throw new Error(serverErrorMessage(cardLocale, 'upstream_unavailable'));
+      throw new Error(serverErrorMessage(card.cardLocale, 'upstream_unavailable'));
     }
 
     let data;
     try {
       data = await result.json();
     } catch {
-      throw new Error(serverErrorMessage(cardLocale, 'upstream_unavailable'));
+      throw new Error(serverErrorMessage(card.cardLocale, 'upstream_unavailable'));
     }
-    if (!result.ok) throw new Error(data.error || serverErrorMessage(cardLocale, data.errorCode));
-    if (typeof data.response !== 'string' || !data.response.trim() || data.followUp !== null) {
-      throw new Error(serverErrorMessage(cardLocale, 'invalid_ai_response'));
+    if (!result.ok) {
+      const error = new Error(data.error || serverErrorMessage(card.cardLocale, data.errorCode));
+      error.code = data.errorCode;
+      throw error;
     }
-    if (revision !== responseRevision) return;
-    card.completedFollowUp = { prompt: card.followUpExactPrompt, response: data.response };
-    card.followUpAnswer.textContent = data.response;
-    card.followUpAnswer.hidden = false;
-    card.followUpStatus.textContent = translate(cardLocale, 'followUpGenerated');
+    if (turn.revision !== responseRevision) return;
+    const followUp = data.followUp ?? null;
+    if (typeof data.response !== 'string' || !data.response.trim() ||
+        !(followUp === null || (typeof followUp.offer === 'string' && followUp.offer.trim() &&
+          typeof followUp.prompt === 'string' && followUp.prompt.trim()))) {
+      throw new Error(serverErrorMessage(card.cardLocale, 'invalid_ai_response'));
+    }
+    turn.status = 'success';
+    turn.response = data.response;
+    turn.offer = followUp;
+    turn.answerElement.textContent = data.response;
+    turn.answerElement.hidden = false;
+    turn.statusElement.textContent = translate(card.cardLocale, 'followUpGenerated');
+    turn.toggle.hidden = turn.answerElement.scrollHeight <= turn.answerElement.clientHeight + 1;
+    if (followUp) {
+      const completedCount = card.turns.filter(item => item.status === 'success').length;
+      createFollowUpOffer(card, turn.nextContainer, followUp, completedCount + 1, turn.revision);
+    }
   } catch (error) {
-    if (revision === responseRevision && !controller.signal.aborted) {
-      card.followUpStatus.textContent = error.message;
+    if (turn.revision === responseRevision && !controller.signal.aborted) {
+      turn.status = 'error';
+      turn.statusElement.textContent = error.message;
+      turn.retry.hidden = error.code === 'conversation_limit_reached';
     }
   } finally {
     activeFollowUps.delete(controller);
-    if (revision === responseRevision) card.followUpArea.setAttribute('aria-busy', 'false');
+    if (turn.revision === responseRevision) turn.panel.setAttribute('aria-busy', 'false');
   }
 }
 
-async function downloadResponsePdf(label, prompt, response, cardLocale, followUp = null) {
+async function downloadResponsePdf(label, prompt, response, cardLocale, turns = []) {
   const pdfTitle = translate(cardLocale, 'pdfTitle');
   const exactPromptHeading = translate(cardLocale, 'pdfExactPrompt');
   const responseHeading = translate(cardLocale, 'pdfResponse');
-  if (japaneseCharacterPattern.test(`${label}${pdfTitle}${exactPromptHeading}${responseHeading}${prompt}${response}${followUp?.prompt ?? ''}${followUp?.response ?? ''}`)) {
+  const turnText = turns.map(turn => `${turn.prompt}${turn.response}`).join('');
+  if (japaneseCharacterPattern.test(`${label}${pdfTitle}${exactPromptHeading}${responseHeading}${prompt}${response}${turnText}`)) {
     await loadPdfJapaneseFont();
   }
   const safeLabel = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'response';
@@ -509,14 +579,15 @@ async function downloadResponsePdf(label, prompt, response, cardLocale, followUp
       { text: pdfTextRuns(response), preserveLeadingSpaces: true },
     ],
   };
-  if (followUp) {
+  turns.forEach((turn, index) => {
     definition.content.push(
+      { text: pdfTextRuns(translate(cardLocale, 'followUpTurn', { count: index + 1 })), style: 'cardLabel' },
       { text: pdfTextRuns(translate(cardLocale, 'followUpPrompt')), style: 'section' },
-      { text: pdfTextRuns(followUp.prompt), preserveLeadingSpaces: true },
+      { text: pdfTextRuns(turn.prompt), preserveLeadingSpaces: true },
       { text: pdfTextRuns(translate(cardLocale, 'followUpResponse')), style: 'section' },
-      { text: pdfTextRuns(followUp.response), preserveLeadingSpaces: true },
+      { text: pdfTextRuns(turn.response), preserveLeadingSpaces: true },
     );
-  }
+  });
   await globalThis.pdfMake.createPdf(definition).download(`prompt-mixer-${safeLabel}.pdf`);
 }
 
@@ -533,9 +604,10 @@ function updateResponseCards(cards, states) {
     } else if (state.status === 'success') {
       status.textContent = translate(locale, 'generated');
       card.followUp = state.followUp ?? null;
-      if (card.followUp && !card.followUpDismissed) {
+      if (card.followUp && !card.followUpDismissed && !card.initialOfferRendered) {
+        card.initialOfferRendered = true;
         card.followUpArea.hidden = false;
-        card.offer.textContent = card.followUp.offer;
+        createFollowUpOffer(card, card.followUpArea, card.followUp, 1, card.revision, true);
       }
       if (card.lastStatus !== 'success') {
         card.response = state.response;
