@@ -116,6 +116,7 @@ Verification:
 This iteration replaces the one-follow-up-per-card restriction.
 
 - Each answer may offer one useful next step with localized Yes/No controls.
+- Follow-up offers may propose only actions this text-only app can perform: explain, draft text or code, show examples, predict code output, or provide instructions. Offers must never promise to execute code, browse websites, access files, or perform external actions. Predicted code output must be described honestly as expected output, not as an execution result. Each offer still proposes exactly one concrete action the user can accept or decline with Yes or No.
 - Yes makes one new request and appends the answer beneath the previous turn in the same card.
 - Each new answer may include another structured follow-up offer. Never detect offers by matching phrases.
 - No dismisses that offer without making a request.

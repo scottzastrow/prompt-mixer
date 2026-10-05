@@ -89,6 +89,9 @@ test('uses server side key and returns model output without exposing credentials
     assert.equal(result.status, 200);
     assert.deepEqual(await result.json(), { response: 'A concise explanation.', followUp: { offer: 'Want an example?', prompt: 'Give an example.' } });
     assert.match(submitted.instructions, /「はい／いいえ」で受けるか断るかを判断できる、具体的な一つの行動/);
+    assert.match(submitted.instructions, /このテキスト専用アプリが実行できる行動のみを提案してください/);
+    assert.match(submitted.instructions, /コードの実行、ウェブサイトの閲覧、ファイルへのアクセス、外部での操作を提案してはいけません/);
+    assert.match(submitted.instructions, /予測した出力は、実行結果ではなく予想される出力として正直に説明してください/);
     assert.match(submitted.instructions, /follow_up\.prompt は同じ行動を直接依頼するプロンプトにしてください/);
     assert.match(submitted.instructions, /複数の選択肢からユーザーに選ばせてはいけません/);
     assert.equal(submitted.max_output_tokens, 3000);
@@ -150,6 +153,9 @@ test('generates a follow-up from ordered history and allows another structured o
     assert.equal(submitted.text.format.name, 'prompt_mixer_follow_up');
     assert.deepEqual(submitted.text.format.schema.properties.follow_up.anyOf.map(schema => schema.type), ['object', 'null']);
     assert.match(submitted.instructions, /exactly one concrete action the user can accept or decline with Yes or No/);
+    assert.match(submitted.instructions, /Only offer actions this text-only app can perform: explain something, draft text or code, show examples, predict code output, or provide instructions/);
+    assert.match(submitted.instructions, /Never offer to execute code, browse websites, access files, or perform external actions/);
+    assert.match(submitted.instructions, /Describe predicted output honestly as expected output, not as an execution result/);
     assert.match(submitted.instructions, /follow_up\.offer a concise Yes\/No question/);
     assert.match(submitted.instructions, /Never ask the user to choose between alternatives/);
     assert.match(submitted.instructions, /If clarification from the user is required/);
