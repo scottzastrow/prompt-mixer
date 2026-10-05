@@ -27,6 +27,7 @@ Build one screen that shows how optional prompt instructions affect the text sen
 - **Iteration 8 (implemented):** Use OpenAI Structured Outputs with a strict JSON Schema for each answer and nullable follow-up offer; do not infer offers from answer wording. Add one optional Yes/No follow-up per card through the existing server-side limits, token settings, and non-fatal experiment logger. Cancel pending follow-ups when the comparison is invalidated, retain original answers after follow-up errors, localize the controls and states, and append completed follow-up prompts/answers to the card PDF. Automated tests pass with mocked OpenAI responses and no credentials; production live verification remains a separate deployment check.
 - **Iteration 9 (in progress):** Replace the single-follow-up limit with explicit user-driven turns per card. Send ordered structured history to the server; return a new structured offer after every answer; support retrying only failed turns; enforce eight completed follow-up turns and 24,000 Unicode code points of conversation text per card on the server (plus a 200 KB request-body ceiling). Keep cards independent, preserve cancellation/localization/rate limits/logging, and export all completed turns in order with expandable answers.
 - **Iteration 9 (implemented):** Replace the single-follow-up limit with explicit user-driven turns per card. Send ordered structured history to the server; return a new structured offer after every answer; support retrying only failed turns; enforce eight completed follow-up turns and 24,000 Unicode code points of conversation text per card on the server (plus a 200 KB request-body ceiling). Keep cards independent, preserve cancellation/localization/rate limits/logging, and export all completed turns in order with expandable answers. Automated tests pass with simulated responses and no API key.
+- **Iteration 10 (implemented):** Choose the initial interface language from the browser when no explicit selection is stored. A valid saved choice (`en` or `ja`) takes priority; otherwise inspect `navigator.languages` in preference order with `navigator.language` as a fallback, mapping `en`/`en-*` to English and `ja`/`ja-*` to Japanese case-insensitively, skipping unsupported tags, and defaulting to English. Handle unavailable localStorage or browser language data without breaking initialization, and never persist an automatically detected default as an explicit user choice. Keep the dropdown and explicit-selection persistence unchanged. Automated regression tests cover preference ordering, regional tags, unsupported-language fallback, saved-choice priority, invalid saved values, and unavailable storage.
 - **Later experiment:** Add a History interface so stored interactions can be reviewed without direct database access.
 
 ## Iteration 8 verification
@@ -49,6 +50,13 @@ Build one screen that shows how optional prompt instructions affect the text sen
 - Verify cancellation prevents stale turn results, English/Japanese strings and answers are preserved, and long follow-up answers have accessible Show more / Show less controls.
 - Verify PDFs include the exact original prompt, answer, and every completed follow-up prompt/answer in order, without another request.
 - Use simulated responses without an API key, then run `npm test` and `git diff --check`.
+
+## Iteration 10 verification
+
+- Verify a valid saved `en`/`ja` choice wins over browser preferences and an invalid saved value is ignored.
+- Verify `navigator.languages` preference order is honored with a `navigator.language` fallback, regional tags map case-insensitively (`en`/`en-*` → English, `ja`/`ja-*` → Japanese), unsupported preferences fall back to English, and unavailable localStorage or browser language data does not break initialization.
+- Verify the language dropdown still works, explicit selections persist locally, and an automatically detected default is never written to local storage.
+- Run `npm test` and `git diff --check`.
 
 ## Known dependency
 

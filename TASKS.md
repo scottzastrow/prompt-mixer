@@ -66,6 +66,12 @@ Earlier iterations and deployment are recorded below. The current iteration impl
 - [x] I9-T6: Test multiple turns, dismissal, no offer, duplicate prevention, retry, server limits, cancellation, both languages, and PDF inclusion with simulated responses; run `npm test` and `git diff --check` without an API key.
 - [x] I9-T7: Verify multi-turn conversations live on Lightsail: English and Japanese follow-up chains both worked, PDFs preserved every completed turn in order, and the latest Japanese run offered a code example followed by expected output without requesting external actions.
 
+## Iteration 10 — browser-based default language
+
+- [x] I10-T1: Choose the initial language from a valid saved choice (`en`/`ja`) first, then `navigator.languages` in preference order with a `navigator.language` fallback; map `en`/`en-*` and `ja`/`ja-*` case-insensitively, skip unsupported tags, and default to English.
+- [x] I10-T2: Handle unavailable localStorage or browser language information without breaking initialization, and never persist an automatically detected default as an explicit user choice while keeping the dropdown and explicit-selection persistence working.
+- [x] I10-T3: Add regression tests for preference ordering, regional language tags, unsupported-language fallback, saved-choice priority, invalid saved values, and unavailable storage; run `npm test` and `git diff --check`.
+
 ## Deployment and production checks
 
 - [x] T8: Install the TLS certificate for promptmixer.vergotek.com via Certbot; HTTPS is complete on the production hostname.

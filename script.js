@@ -8,16 +8,23 @@
  */
 
 import { buildComparisonPrompts, promptPreviewVisibleAfter, runComparison } from './comparison.mjs';
-import { getPreset, normalizeLocale, serverErrorMessage, translate } from './i18n.mjs';
+import { detectPreferredLocale, getPreset, normalizeLocale, serverErrorMessage, translate } from './i18n.mjs';
 
 const form = document.getElementById('prompt-form');
 const rawPromptInput = document.getElementById('raw-prompt');
 const presetSelect = document.getElementById('preset-select');
 const clearButton = document.getElementById('clear-button');
 const languageSelect = document.getElementById('language-select');
+function readSavedLocale() {
+  try {
+    return globalThis.localStorage?.getItem('prompt-mixer-language');
+  } catch {
+    return null;
+  }
+}
 let locale = 'en';
 try {
-  locale = normalizeLocale(globalThis.localStorage?.getItem('prompt-mixer-language'));
+  locale = detectPreferredLocale(readSavedLocale(), globalThis.navigator);
 } catch {
   locale = 'en';
 }
