@@ -64,6 +64,7 @@ Earlier iterations and deployment are recorded below. The current iteration impl
 - [x] I9-T4: Preserve independent per-card history, cancellation/stale-result protection, existing rate limits, logging, and English/Japanese localization.
 - [x] I9-T5: Add accessible Show more / Show less controls for long follow-up answers and export every completed prompt/answer pair in order to PDFs.
 - [x] I9-T6: Test multiple turns, dismissal, no offer, duplicate prevention, retry, server limits, cancellation, both languages, and PDF inclusion with simulated responses; run `npm test` and `git diff --check` without an API key.
+- [x] I9-T7: Verify multi-turn conversations live on Lightsail: English and Japanese follow-up chains both worked, PDFs preserved every completed turn in order, and the latest Japanese run offered a code example followed by expected output without requesting external actions.
 
 ## Deployment and production checks
 
