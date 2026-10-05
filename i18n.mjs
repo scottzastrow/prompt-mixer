@@ -1,3 +1,12 @@
+/*
+ * Project: Prompt Mixer
+ * Author: Scott Zastrow
+ * Course: SEIS 606 — University of St. Thomas
+ * Description: English and Japanese UI messages, presets, and locale helpers shared by the browser and server.
+ * Copyright (c) 2026 Scott Zastrow
+ * SPDX-License-Identifier: MIT
+ */
+
 const messages = {
   en: {
     examples: 'Examples', choosePreset: 'Choose a preset', presetOne: 'Preset 1 · Day hike',

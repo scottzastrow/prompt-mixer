@@ -1,3 +1,12 @@
+/*
+ * Project: Prompt Mixer
+ * Author: Scott Zastrow
+ * Course: SEIS 606 — University of St. Thomas
+ * Description: Integration tests for the HTTP server, input validation, follow-ups, logging, and rate limits.
+ * Copyright (c) 2026 Scott Zastrow
+ * SPDX-License-Identifier: MIT
+ */
+
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';

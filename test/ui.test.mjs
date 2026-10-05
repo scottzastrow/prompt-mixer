@@ -1,3 +1,12 @@
+/*
+ * Project: Prompt Mixer
+ * Author: Scott Zastrow
+ * Course: SEIS 606 — University of St. Thomas
+ * Description: Tests for the HTML document structure and client-side response-state rendering.
+ * Copyright (c) 2026 Scott Zastrow
+ * SPDX-License-Identifier: MIT
+ */
+
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';

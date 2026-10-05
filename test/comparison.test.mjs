@@ -1,3 +1,12 @@
+/*
+ * Project: Prompt Mixer
+ * Author: Scott Zastrow
+ * Course: SEIS 606 — University of St. Thomas
+ * Description: Unit tests for prompt assembly, preview visibility, and comparison-run behavior.
+ * Copyright (c) 2026 Scott Zastrow
+ * SPDX-License-Identifier: MIT
+ */
+
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildComparisonPrompts, promptPreviewVisibleAfter, runComparison } from '../comparison.mjs';

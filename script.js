@@ -1,3 +1,12 @@
+/*
+ * Project: Prompt Mixer
+ * Author: Scott Zastrow
+ * Course: SEIS 606 — University of St. Thomas
+ * Description: Browser logic that assembles prompt variants, calls the server for AI responses, and renders comparisons, follow-ups, and PDF downloads.
+ * Copyright (c) 2026 Scott Zastrow
+ * SPDX-License-Identifier: MIT
+ */
+
 import { buildComparisonPrompts, promptPreviewVisibleAfter, runComparison } from './comparison.mjs';
 import { getPreset, normalizeLocale, serverErrorMessage, translate } from './i18n.mjs';
 
