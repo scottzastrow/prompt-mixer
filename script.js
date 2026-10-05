@@ -19,6 +19,8 @@ const responseSection = document.querySelector('.response-section');
 const responseStatus = document.getElementById('response-status');
 const responseCards = document.getElementById('response-cards');
 let activeRun = null;
+let responseRevision = 0;
+const activeFollowUps = new Set();
 const japaneseCharacterClass = String.raw`[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script_Extensions=Hiragana}\p{Script_Extensions=Katakana}\u3000-\u303f\uff00-\uffef]`;
 const japaneseCharacterPattern = new RegExp(japaneseCharacterClass, 'u');
 const japaneseRunPattern = new RegExp(`(${japaneseCharacterClass}+)`, 'gu');
@@ -175,10 +177,13 @@ form.addEventListener('submit', (event) => {
 });
 
 function clearResponse() {
+  responseRevision++;
   if (activeRun) {
     activeRun.controller.abort();
     activeRun = null;
   }
+  activeFollowUps.forEach(controller => controller.abort());
+  activeFollowUps.clear();
   generateButton.disabled = false;
   responseSection.setAttribute('aria-busy', 'false');
   responseCards.replaceChildren();
@@ -253,6 +258,8 @@ generateButton.addEventListener('click', async () => {
   }
 
   const prompts = buildComparisonPrompts(rawPromptInput.value, currentOptionalFields(), locale);
+  clearResponse();
+  const runRevision = responseRevision;
   const run = { controller: new AbortController() };
   activeRun = run;
   updatePromptPreviewVisibility('valid-generation');
@@ -261,7 +268,7 @@ generateButton.addEventListener('click', async () => {
   responseStatus.textContent = translate(locale, 'generatingCount', { count: prompts.length });
   responseCards.hidden = false;
 
-  const cards = createResponseCards(prompts);
+  const cards = createResponseCards(prompts, runRevision);
   responseCards.replaceChildren(...cards.map(({ element }) => element));
 
   try {
@@ -292,7 +299,7 @@ generateButton.addEventListener('click', async () => {
         error.status = result.status;
         throw error;
       }
-      return data.response;
+      return { response: data.response, followUp: data.followUp ?? null };
     }, nextStates => {
       if (activeRun !== run) return;
       updateResponseCards(cards, nextStates);
@@ -319,13 +326,13 @@ generateButton.addEventListener('click', async () => {
   }
 });
 
-function createResponseCards(prompts) {
+function createResponseCards(prompts, revision) {
   return prompts.map(({ label, prompt }, index) => {
     const cardLocale = locale;
     const element = document.createElement('article');
     element.className = 'response-card';
     element.setAttribute('aria-busy', 'false');
-    const card = { response: undefined };
+    const card = { response: undefined, followUp: null, followUpRequested: false, completedFollowUp: null };
 
     const heading = document.createElement('h3');
     heading.textContent = label;
@@ -340,7 +347,7 @@ function createResponseCards(prompts) {
     download.addEventListener('click', async () => {
       if (!download.disabled && card.response !== undefined) {
         try {
-          await downloadResponsePdf(label, prompt, card.response, cardLocale);
+          await downloadResponsePdf(label, prompt, card.response, cardLocale, card.completedFollowUp);
         } catch {
           responseStatus.textContent = translate(cardLocale, 'pdfError');
         }
@@ -386,17 +393,100 @@ function createResponseCards(prompts) {
     status.textContent = translate(cardLocale, 'waiting');
 
     responseContent.append(answerLabel, status, answer, toggle);
+    const followUpArea = document.createElement('section');
+    followUpArea.className = 'follow-up-section';
+    followUpArea.hidden = true;
+    const followUpTitle = document.createElement('h4');
+    followUpTitle.textContent = translate(cardLocale, 'followUp');
+    const offer = document.createElement('p');
+    offer.className = 'follow-up-offer';
+    const followUpActions = document.createElement('div');
+    followUpActions.className = 'follow-up-actions';
+    const yesButton = document.createElement('button');
+    yesButton.type = 'button';
+    yesButton.textContent = translate(cardLocale, 'followUpYes');
+    const noButton = document.createElement('button');
+    noButton.type = 'button';
+    noButton.textContent = translate(cardLocale, 'followUpNo');
+    const followUpStatus = document.createElement('p');
+    followUpStatus.className = 'follow-up-status';
+    followUpStatus.setAttribute('role', 'status');
+    const followUpAnswer = document.createElement('div');
+    followUpAnswer.className = 'follow-up-answer';
+    followUpAnswer.hidden = true;
+    yesButton.addEventListener('click', () => requestFollowUp(card, cardLocale, revision));
+    noButton.addEventListener('click', () => {
+      card.followUpDismissed = true;
+      followUpArea.hidden = true;
+    });
+    followUpActions.append(yesButton, noButton);
+    followUpArea.append(followUpTitle, offer, followUpActions, followUpStatus, followUpAnswer);
+    responseContent.append(followUpArea);
     element.append(heading, download, promptDetails, responseContent);
-    Object.assign(card, { element, status, answer, toggle, download, prompt, lastStatus: 'waiting' });
+    Object.assign(card, {
+      element, status, answer, toggle, download, prompt, followUpArea, offer,
+      yesButton, noButton, followUpStatus, followUpAnswer, lastStatus: 'waiting',
+    });
     return card;
   });
 }
 
-async function downloadResponsePdf(label, prompt, response, cardLocale) {
+async function requestFollowUp(card, cardLocale, revision) {
+  if (!card.followUp || card.followUpRequested || card.followUpDismissed || revision !== responseRevision) return;
+
+  card.followUpRequested = true;
+  card.yesButton.disabled = true;
+  card.noButton.disabled = true;
+  card.followUpExactPrompt = `${translate(cardLocale, 'exactPrompt')}:\n${card.prompt}\n\n${translate(cardLocale, 'response')}:\n${card.response}\n\n${translate(cardLocale, 'followUpPrompt')}:\n${card.followUp.prompt}`;
+  card.followUpStatus.textContent = translate(cardLocale, 'followUpLoading');
+  card.followUpArea.setAttribute('aria-busy', 'true');
+  const controller = new AbortController();
+  activeFollowUps.add(controller);
+
+  try {
+    let result;
+    try {
+      result = await fetch('/api/follow-up', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: card.followUpExactPrompt, locale: cardLocale }),
+        signal: controller.signal,
+      });
+    } catch (cause) {
+      if (controller.signal.aborted) return;
+      throw new Error(serverErrorMessage(cardLocale, 'upstream_unavailable'));
+    }
+
+    let data;
+    try {
+      data = await result.json();
+    } catch {
+      throw new Error(serverErrorMessage(cardLocale, 'upstream_unavailable'));
+    }
+    if (!result.ok) throw new Error(data.error || serverErrorMessage(cardLocale, data.errorCode));
+    if (typeof data.response !== 'string' || !data.response.trim() || data.followUp !== null) {
+      throw new Error(serverErrorMessage(cardLocale, 'invalid_ai_response'));
+    }
+    if (revision !== responseRevision) return;
+    card.completedFollowUp = { prompt: card.followUpExactPrompt, response: data.response };
+    card.followUpAnswer.textContent = data.response;
+    card.followUpAnswer.hidden = false;
+    card.followUpStatus.textContent = translate(cardLocale, 'followUpGenerated');
+  } catch (error) {
+    if (revision === responseRevision && !controller.signal.aborted) {
+      card.followUpStatus.textContent = error.message;
+    }
+  } finally {
+    activeFollowUps.delete(controller);
+    if (revision === responseRevision) card.followUpArea.setAttribute('aria-busy', 'false');
+  }
+}
+
+async function downloadResponsePdf(label, prompt, response, cardLocale, followUp = null) {
   const pdfTitle = translate(cardLocale, 'pdfTitle');
   const exactPromptHeading = translate(cardLocale, 'pdfExactPrompt');
   const responseHeading = translate(cardLocale, 'pdfResponse');
-  if (japaneseCharacterPattern.test(`${label}${pdfTitle}${exactPromptHeading}${responseHeading}${prompt}${response}`)) {
+  if (japaneseCharacterPattern.test(`${label}${pdfTitle}${exactPromptHeading}${responseHeading}${prompt}${response}${followUp?.prompt ?? ''}${followUp?.response ?? ''}`)) {
     await loadPdfJapaneseFont();
   }
   const safeLabel = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'response';
@@ -419,6 +509,14 @@ async function downloadResponsePdf(label, prompt, response, cardLocale) {
       { text: pdfTextRuns(response), preserveLeadingSpaces: true },
     ],
   };
+  if (followUp) {
+    definition.content.push(
+      { text: pdfTextRuns(translate(cardLocale, 'followUpPrompt')), style: 'section' },
+      { text: pdfTextRuns(followUp.prompt), preserveLeadingSpaces: true },
+      { text: pdfTextRuns(translate(cardLocale, 'followUpResponse')), style: 'section' },
+      { text: pdfTextRuns(followUp.response), preserveLeadingSpaces: true },
+    );
+  }
   await globalThis.pdfMake.createPdf(definition).download(`prompt-mixer-${safeLabel}.pdf`);
 }
 
@@ -434,6 +532,11 @@ function updateResponseCards(cards, states) {
       status.textContent = translate(locale, 'generating');
     } else if (state.status === 'success') {
       status.textContent = translate(locale, 'generated');
+      card.followUp = state.followUp ?? null;
+      if (card.followUp && !card.followUpDismissed) {
+        card.followUpArea.hidden = false;
+        card.offer.textContent = card.followUp.offer;
+      }
       if (card.lastStatus !== 'success') {
         card.response = state.response;
         answer.textContent = state.response;

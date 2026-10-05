@@ -7,6 +7,7 @@ import { server } from '../server.mjs';
 import { RequestLimits } from '../limits.mjs';
 
 const realFetch = globalThis.fetch;
+const structuredOutput = (answer, followUp = null) => JSON.stringify({ answer, follow_up: followUp });
 
 test('serves the UI and rejects invalid input without calling OpenAI', async () => {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -76,7 +77,7 @@ test('uses server side key and returns model output without exposing credentials
     assert.equal(url, 'https://api.openai.com/v1/responses');
     assert.equal(options.headers.Authorization, 'Bearer test-only-secret');
     submitted = JSON.parse(options.body);
-    return new Response(JSON.stringify({ output: [{ content: [{ type: 'output_text', text: 'A concise explanation.' }] }] }), {
+    return new Response(JSON.stringify({ output: [{ content: [{ type: 'output_text', text: structuredOutput('A concise explanation.', { offer: 'Want an example?', prompt: 'Give an example.' }) }] }] }), {
       status: 200, headers: { 'Content-Type': 'application/json' },
     });
   };
@@ -87,11 +88,53 @@ test('uses server side key and returns model output without exposing credentials
       body: JSON.stringify({ prompt: 'Explain recursion.\n\nRespond in Japanese.', locale: 'ja' }),
     });
     assert.equal(result.status, 200);
-    assert.deepEqual(await result.json(), { response: 'A concise explanation.' });
+    assert.deepEqual(await result.json(), { response: 'A concise explanation.', followUp: { offer: 'Want an example?', prompt: 'Give an example.' } });
     assert.equal(submitted.input, 'Explain recursion.\n\nRespond in Japanese.');
     assert.equal(submitted.max_output_tokens, 3000);
     assert.deepEqual(submitted.reasoning, { effort: 'low' });
+    assert.equal(submitted.text.format.type, 'json_schema');
+    assert.equal(submitted.text.format.strict, true);
+    assert.deepEqual(submitted.text.format.schema.required, ['answer', 'follow_up']);
+    assert.deepEqual(submitted.text.format.schema.properties.follow_up.anyOf.map(schema => schema.type), ['object', 'null']);
     assert.equal(submitted.store, false);
+  } finally {
+    server.close();
+    globalThis.fetch = oldFetch;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.LIMIT_STATE_FILE;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('generates a follow-up with the original context and a null-only follow-up schema', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'prompt-mixer-follow-up-test-'));
+  process.env.LIMIT_STATE_FILE = join(dir, 'limits.json');
+  process.env.OPENAI_API_KEY = 'test-only-secret';
+  const oldFetch = globalThis.fetch;
+  let submitted;
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, 'https://api.openai.com/v1/responses');
+    submitted = JSON.parse(options.body);
+    return new Response(JSON.stringify({ output: [{ content: [{
+      type: 'output_text', text: structuredOutput('A worked example.'),
+    }] }] }), { status: 200 });
+  };
+
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const prompt = 'Original exact prompt\n\nAnswer: Original answer\n\nNext: Give a worked example.';
+    const result = await realFetch(`http://127.0.0.1:${server.address().port}/api/follow-up`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, locale: 'en' }),
+    });
+
+    assert.equal(result.status, 200);
+    assert.deepEqual(await result.json(), { response: 'A worked example.', followUp: null });
+    assert.equal(submitted.input, prompt);
+    assert.equal(submitted.text.format.name, 'prompt_mixer_follow_up');
+    assert.deepEqual(submitted.text.format.schema.properties.follow_up, { type: 'null' });
+    assert.equal(submitted.instructions.includes('Set follow_up to null'), true);
   } finally {
     server.close();
     globalThis.fetch = oldFetch;
@@ -167,7 +210,7 @@ test('logs incomplete OpenAI output metadata when partial text still exists', as
     usage: { input_tokens: 7, output_tokens: 3 },
     output: [{
       type: 'message',
-      content: [{ type: 'output_text', text: 'A partial answer.' }],
+      content: [{ type: 'output_text', text: structuredOutput('A partial answer.') }],
     }, { type: 'reasoning' }],
   }), {
     status: 200,
@@ -183,7 +226,7 @@ test('logs incomplete OpenAI output metadata when partial text still exists', as
     });
 
     assert.equal(result.status, 200);
-    assert.deepEqual(await result.json(), { response: 'A partial answer.' });
+    assert.deepEqual(await result.json(), { response: 'A partial answer.', followUp: null });
 
     const diagnostic = logged.find(args => args.some(arg => arg && typeof arg === 'object' && arg.id === 'resp_partial_123'));
     assert.ok(diagnostic, 'server should log incomplete metadata even with partial output text');
@@ -244,17 +287,17 @@ test('limits persist across restarts, distinguish IPs, and block before the paid
     let paidCalls = 0;
     globalThis.fetch = async () => {
       paidCalls++;
-      return new Response(JSON.stringify({ output: [{ content: [{ type: 'output_text', text: 'ok' }] }] }), { status: 200 });
+      return new Response(JSON.stringify({ output: [{ content: [{ type: 'output_text', text: structuredOutput('ok') }] }] }), { status: 200 });
     };
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-    const base = `http://127.0.0.1:${server.address().port}/api/generate`;
-    const request = ip => realFetch(base, {
+    const base = `http://127.0.0.1:${server.address().port}`;
+    const request = (ip, path = '/api/generate') => realFetch(`${base}${path}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': `forged, ${ip}` },
       body: JSON.stringify({ prompt: 'Hello' }),
     });
     try {
       assert.equal((await request('192.0.2.3')).status, 200);
-      const blocked = await request('192.0.2.3');
+      const blocked = await request('192.0.2.3', '/api/follow-up');
       assert.equal(blocked.status, 429);
       assert.ok(Number(blocked.headers.get('Retry-After')) > 0);
       assert.deepEqual(await blocked.json(), {

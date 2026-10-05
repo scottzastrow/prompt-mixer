@@ -55,9 +55,14 @@ export async function runComparison(prompts, request, onUpdate, isCurrent, messa
     publish();
 
     try {
-      const response = await request(prompts[index].prompt);
+      const result = await request(prompts[index].prompt);
       if (!isCurrent()) break;
-      states[index] = { status: 'success', response, error: '' };
+      states[index] = {
+        status: 'success',
+        response: typeof result === 'string' ? result : result.response,
+        followUp: typeof result === 'string' ? null : result.followUp ?? null,
+        error: '',
+      };
     } catch (error) {
       if (!isCurrent()) break;
       states[index] = { status: 'error', response: '', error: error.message || 'Could not generate a response.' };
