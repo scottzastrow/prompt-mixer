@@ -88,6 +88,9 @@ test('uses server side key and returns model output without exposing credentials
     });
     assert.equal(result.status, 200);
     assert.deepEqual(await result.json(), { response: 'A concise explanation.', followUp: { offer: 'Want an example?', prompt: 'Give an example.' } });
+    assert.match(submitted.instructions, /「はい／いいえ」で受けるか断るかを判断できる、具体的な一つの行動/);
+    assert.match(submitted.instructions, /follow_up\.prompt は同じ行動を直接依頼するプロンプトにしてください/);
+    assert.match(submitted.instructions, /複数の選択肢からユーザーに選ばせてはいけません/);
     assert.equal(submitted.max_output_tokens, 3000);
     assert.deepEqual(submitted.reasoning, { effort: 'low' });
     assert.equal(submitted.text.format.type, 'json_schema');
@@ -146,7 +149,10 @@ test('generates a follow-up from ordered history and allows another structured o
     ]);
     assert.equal(submitted.text.format.name, 'prompt_mixer_follow_up');
     assert.deepEqual(submitted.text.format.schema.properties.follow_up.anyOf.map(schema => schema.type), ['object', 'null']);
-    assert.match(submitted.instructions, /offer one further next step/);
+    assert.match(submitted.instructions, /exactly one concrete action the user can accept or decline with Yes or No/);
+    assert.match(submitted.instructions, /follow_up\.offer a concise Yes\/No question/);
+    assert.match(submitted.instructions, /Never ask the user to choose between alternatives/);
+    assert.match(submitted.instructions, /If clarification from the user is required/);
   } finally {
     server.close();
     globalThis.fetch = oldFetch;

@@ -16,6 +16,16 @@ const model = process.env.OPENAI_MODEL || 'gpt-5-mini';
 const MAX_FOLLOW_UP_TURNS = 8;
 const MAX_CONVERSATION_CODE_POINTS = 24000;
 const MAX_FOLLOW_UP_BODY_BYTES = 200_000;
+const responseInstructions = {
+  en: {
+    initial: 'Answer in the language requested by the input. Only offer a follow-up if there is exactly one concrete action the user can accept or decline with Yes or No. Make follow_up.offer a concise Yes/No question about that action, and make follow_up.prompt directly request the same action. Never ask the user to choose between alternatives. If clarification from the user is required, or no single concrete action is appropriate, set follow_up to null.',
+    followUp: 'Answer the latest follow-up in the language requested by the original prompt. Only offer another follow-up if there is exactly one concrete action the user can accept or decline with Yes or No. Make follow_up.offer a concise Yes/No question about that action, and make follow_up.prompt directly request the same action. Never ask the user to choose between alternatives. If clarification from the user is required, or no single concrete action is appropriate, set follow_up to null.',
+  },
+  ja: {
+    initial: '入力で指定された言語で回答してください。ユーザーが「はい／いいえ」で受けるか断るかを判断できる、具体的な一つの行動を提案できる場合に限り、追加質問を提示してください。follow_up.offer はその行動を尋ねる簡潔な「はい／いいえ」の質問にし、follow_up.prompt は同じ行動を直接依頼するプロンプトにしてください。複数の選択肢からユーザーに選ばせてはいけません。ユーザーへの確認が必要な場合、または具体的な一つの行動を提案できない場合は、follow_up を null にしてください。',
+    followUp: '元のプロンプトで指定された言語で最新の追加質問に回答してください。ユーザーが「はい／いいえ」で受けるか断るかを判断できる、具体的な一つの行動を提案できる場合に限り、次の追加質問を提示してください。follow_up.offer はその行動を尋ねる簡潔な「はい／いいえ」の質問にし、follow_up.prompt は同じ行動を直接依頼するプロンプトにしてください。複数の選択肢からユーザーに選ばせてはいけません。ユーザーへの確認が必要な場合、または具体的な一つの行動を提案できない場合は、follow_up を null にしてください。',
+  },
+};
 
 function sendError(res, status, errorCode, locale = 'en', extraHeaders = {}) {
   send(res, status, { errorCode, error: serverErrorMessage(locale, errorCode) }, extraHeaders);
@@ -222,9 +232,7 @@ async function generate(req, res, isFollowUp = false) {
       body: JSON.stringify({
         model,
         input,
-        instructions: isFollowUp
-          ? 'Follow the response-language instruction in the original user prompt. Answer the latest follow-up and, if useful, offer one further next step in the requested language.'
-          : 'Answer the input prompt in its requested language. If a useful next step is available, set follow_up.offer to a concise offer for the user and follow_up.prompt to the exact prompt to run if accepted. Otherwise set follow_up to null.',
+        instructions: responseInstructions[locale][isFollowUp ? 'followUp' : 'initial'],
         max_output_tokens: 3000,
         reasoning: { effort: 'low' },
         text: {
