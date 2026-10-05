@@ -1,6 +1,7 @@
 # Prompt Mixer — tasks for this iteration
 
 Earlier iterations and deployment are recorded below. The current iteration implements cumulative response comparison from [SPEC.md](SPEC.md) and [PLAN.md](PLAN.md); its task status is tracked separately here.
+Earlier iterations and deployment are recorded below. The current iteration implements continuous AI follow-ups from [SPEC.md](SPEC.md) and [PLAN.md](PLAN.md); its task status is tracked separately here.
 
 ## Core app behavior
 
@@ -54,6 +55,15 @@ Earlier iterations and deployment are recorded below. The current iteration impl
 - [x] I8-T6: Test Yes, No, no offer, errors, 429 rate limits, cancellation, both locales, and PDF inclusion using simulated API responses; run `npm test` and `git diff --check` without an API key.
 - [ ] I8-T7: Perform a live Lightsail verification separately when deployment access is available.
 - [x] I8-T7: Verify on Lightsail that English Yes generates a follow-up while preserving the original answer, No dismisses the offer, Japanese Yes generates a Japanese follow-up, and English/Japanese PDFs include the original prompt, answer, and completed follow-up.
+
+## Iteration 9 — continuous AI follow-ups
+
+- [x] I9-T1: Send each card's ordered conversation history to the server and request a structured nullable offer on every turn.
+- [x] I9-T2: Enforce a maximum of 8 completed follow-up turns, 24,000 Unicode code points across conversation text, and a 200 KB request body on the server; return a localized start-new-prompt error without truncating history.
+- [x] I9-T3: Append turns only after explicit Yes, keep No as a no-request dismissal, prevent duplicate submissions, and allow deliberate retries of failed turns without duplicating completed turns.
+- [x] I9-T4: Preserve independent per-card history, cancellation/stale-result protection, existing rate limits, logging, and English/Japanese localization.
+- [x] I9-T5: Add accessible Show more / Show less controls for long follow-up answers and export every completed prompt/answer pair in order to PDFs.
+- [x] I9-T6: Test multiple turns, dismissal, no offer, duplicate prevention, retry, server limits, cancellation, both languages, and PDF inclusion with simulated responses; run `npm test` and `git diff --check` without an API key.
 
 ## Deployment and production checks
 

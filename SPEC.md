@@ -111,3 +111,20 @@ Verification:
 - Field changes, preset selection, Clear, and language changes cancel pending follow-ups and discard stale results.
 - PDF downloads include any completed follow-up with its exact prompt and full answer, without another AI request.
 - Verify the flow locally with simulated responses, then perform a live check on Lightsail.
+## Continuous AI follow-ups
+
+This iteration replaces the one-follow-up-per-card restriction.
+
+- Each answer may offer one useful next step with localized Yes/No controls.
+- Yes makes one new request and appends the answer beneath the previous turn in the same card.
+- Each new answer may include another structured follow-up offer. Never detect offers by matching phrases.
+- No dismisses that offer without making a request.
+- Continue only when the user selects Yes. Never automatically send requests.
+- Preserve the original exact prompt and the ordered conversation history for each card. Keep cards independent.
+- Apply server-enforced request size and conversation limits. If the conversation exceeds those limits, show a localized message asking the user to start a new prompt; do not silently truncate history.
+- Count every accepted follow-up against the existing rate limits and token budget, and log each successful interaction.
+- Prevent duplicate requests per turn. Preserve completed answers on failure and allow a deliberate retry without duplicating successful turns.
+- Cancel pending work and ignore stale results after field changes, checkbox changes, preset selection, Clear, or language changes.
+- Give long follow-up answers accessible Show more / Show less controls.
+- PDF downloads include the original prompt and all completed follow-up prompts and answers in order, without another AI request.
+- Test multiple turns, No, no offer, errors, retries, limits, cancellation, English/Japanese, and PDF export with simulated responses before live verification.

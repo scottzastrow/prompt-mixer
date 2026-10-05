@@ -13,6 +13,9 @@ const pdfFonts = require('pdfmake/build/vfs_fonts.js');
 const port = Number(process.env.PORT || 8081);
 const host = process.env.HOST || '127.0.0.1';
 const model = process.env.OPENAI_MODEL || 'gpt-5-mini';
+const MAX_FOLLOW_UP_TURNS = 8;
+const MAX_CONVERSATION_CODE_POINTS = 24000;
+const MAX_FOLLOW_UP_BODY_BYTES = 200_000;
 
 function sendError(res, status, errorCode, locale = 'en', extraHeaders = {}) {
   send(res, status, { errorCode, error: serverErrorMessage(locale, errorCode) }, extraHeaders);
@@ -121,28 +124,71 @@ async function generate(req, res, isFollowUp = false) {
   }
 
   let body = '';
-  const maxBodyLength = isFollowUp ? 40000 : 12000;
+  let bodyBytes = 0;
   for await (const chunk of req) {
+    bodyBytes += chunk.length;
+    if (isFollowUp && bodyBytes > MAX_FOLLOW_UP_BODY_BYTES) {
+      sendError(res, 413, 'conversation_limit_reached', normalizeLocale(req.headers['x-ui-locale']));
+      return;
+    }
     body += chunk;
-    if (body.length > maxBodyLength) {
+    if (!isFollowUp && body.length > 12000) {
       sendError(res, 413, 'request_too_large');
       return;
     }
   }
 
   let prompt;
+  let input;
   let locale = 'en';
   try {
     const payload = JSON.parse(body);
-    prompt = payload.prompt;
     locale = normalizeLocale(payload.locale);
+    if (isFollowUp) {
+      const { originalPrompt, originalResponse, history, nextPrompt } = payload;
+      const validText = value => typeof value === 'string' && value.trim().length > 0;
+      const validHistory = Array.isArray(history) && history.every(turn =>
+        turn && validText(turn.prompt) && validText(turn.response));
+      if (!validText(originalPrompt) || originalPrompt.length > 6000 || !validText(originalResponse) ||
+          !validText(nextPrompt) || !validHistory) {
+        sendError(res, 400, 'invalid_follow_up', locale);
+        return;
+      }
+      const textLength = [originalPrompt, originalResponse, nextPrompt, ...history.flatMap(turn => [turn.prompt, turn.response])]
+        .reduce((total, text) => total + Array.from(text).length, 0);
+      if (history.length >= MAX_FOLLOW_UP_TURNS || textLength > MAX_CONVERSATION_CODE_POINTS) {
+        sendError(res, 413, 'conversation_limit_reached', locale);
+        return;
+      }
+      const messages = [
+        { role: 'user', content: originalPrompt },
+        { role: 'assistant', content: originalResponse },
+        ...history.flatMap(turn => [
+          { role: 'user', content: turn.prompt },
+          { role: 'assistant', content: turn.response },
+        ]),
+        { role: 'user', content: nextPrompt },
+      ];
+      prompt = [
+        `Original submitted prompt:\n${originalPrompt}`,
+        `Original response:\n${originalResponse}`,
+        ...history.flatMap((turn, index) => [
+          `Follow-up ${index + 1} prompt:\n${turn.prompt}`,
+          `Follow-up ${index + 1} response:\n${turn.response}`,
+        ]),
+        `Follow-up ${history.length + 1} prompt:\n${nextPrompt}`,
+      ].join('\n\n');
+      input = messages;
+    } else {
+      prompt = payload.prompt;
+      input = prompt;
+    }
   } catch {
     sendError(res, 400, 'invalid_json');
     return;
   }
-  const maxPromptLength = isFollowUp ? 30000 : 6000;
-  if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > maxPromptLength) {
-    sendError(res, 400, isFollowUp ? 'invalid_follow_up' : 'invalid_prompt', locale);
+  if (!isFollowUp && (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 6000)) {
+    sendError(res, 400, 'invalid_prompt', locale);
     return;
   }
   if (!process.env.OPENAI_API_KEY) {
@@ -175,9 +221,9 @@ async function generate(req, res, isFollowUp = false) {
       },
       body: JSON.stringify({
         model,
-        input: prompt,
+        input,
         instructions: isFollowUp
-          ? 'Answer the follow-up request in its requested language. Set follow_up to null.'
+          ? 'Follow the response-language instruction in the original user prompt. Answer the latest follow-up and, if useful, offer one further next step in the requested language.'
           : 'Answer the input prompt in its requested language. If a useful next step is available, set follow_up.offer to a concise offer for the user and follow_up.prompt to the exact prompt to run if accepted. Otherwise set follow_up to null.',
         max_output_tokens: 3000,
         reasoning: { effort: 'low' },
@@ -186,7 +232,7 @@ async function generate(req, res, isFollowUp = false) {
             type: 'json_schema',
             name: isFollowUp ? 'prompt_mixer_follow_up' : 'prompt_mixer_response',
             strict: true,
-            schema: responseSchema(!isFollowUp),
+            schema: responseSchema(true),
           },
         },
         store: false,
@@ -224,7 +270,7 @@ async function generate(req, res, isFollowUp = false) {
       typeof followUp.prompt === 'string' && followUp.prompt.trim()
     );
     if (typeof structured?.answer !== 'string' || !structured.answer.trim() ||
-        !validFollowUp || (isFollowUp && followUp !== null)) {
+        !validFollowUp) {
       sendError(res, 502, 'invalid_ai_response', locale);
       return;
     }
@@ -235,7 +281,7 @@ async function generate(req, res, isFollowUp = false) {
       console.error('Could not log AI interaction:', error.name);
     }
 
-    send(res, 200, { response: answer, followUp: isFollowUp ? null : followUp });
+    send(res, 200, { response: answer, followUp });
   } catch (error) {
     console.error('OpenAI request failed:', error.name);
     sendError(res, 502, 'upstream_unavailable', locale);

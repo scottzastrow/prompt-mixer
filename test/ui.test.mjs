@@ -182,6 +182,15 @@ test('renders response states below Response and hides/restores the prompt previ
     assert.equal(toggle.hidden, false);
     assert.equal(elements.get('response-cards').children[2].children[3].children[4].hidden, true, 'a null follow-up hides its section');
 
+  const contextCard = elements.get('response-cards').children[1];
+  const contextOfferPanel = contextCard.children[3].children[4];
+  const contextTurnRequest = contextOfferPanel.children[2].children[0].trigger('click');
+  const contextTurnBody = JSON.parse(requestBodies.at(-1));
+  assert.equal(contextTurnBody.originalResponse, 'Context answer.');
+  assert.deepEqual(contextTurnBody.history, [], 'each card starts with an independent turn history');
+  fetchResolvers.pop()({ ok: true, status: 200, json: async () => ({ response: 'A context-only follow-up.', followUp: null }) });
+  await contextTurnRequest;
+
     const followUpArea = responseContent.children[4];
     const followUpActions = followUpArea.children[2];
     const yesButton = followUpActions.children[0];
@@ -190,13 +199,56 @@ test('renders response states below Response and hides/restores the prompt previ
     yesButton.trigger('click');
     assert.equal(generationRequests, followUpRequestCount + 1, 'a card accepts only one follow-up request');
     assert.equal(requestUrls.at(-1), '/api/follow-up');
-    const exactFollowUpPrompt = JSON.parse(requestBodies.at(-1)).prompt;
-    assert.match(exactFollowUpPrompt, /Explain tides – café[\s\S]*First line α\.[\s\S]*Give a concrete example\./);
-    fetchResolvers.shift()({ ok: true, status: 200, json: async () => ({ response: 'More detail after follow-up.', followUp: null }) });
+    const firstTurnBody = JSON.parse(requestBodies.at(-1));
+    assert.equal(firstTurnBody.originalPrompt, JSON.parse(requestBodies[0]).prompt);
+    assert.equal(firstTurnBody.originalResponse, 'First line α.\n\nSecond line 東京.');
+    assert.deepEqual(firstTurnBody.history, []);
+    assert.equal(firstTurnBody.nextPrompt, 'Give a concrete example.');
+    fetchResolvers.pop()({ ok: false, status: 502, json: async () => ({ errorCode: 'upstream_unavailable', error: 'Temporary failure.' }) });
     await followUpRequest;
+    assert.equal(answer.textContent, 'First line α.\n\nSecond line 東京.', 'a failed turn does not replace the original response');
+    assert.equal(followUpArea.children[6].hidden, false, `a failed turn exposes Retry: ${followUpArea.children[3].textContent}`);
+    const failedTurnBody = JSON.parse(requestBodies.at(-1));
+    const retryRequest = followUpArea.children[6].trigger('click');
+    assert.equal(generationRequests, followUpRequestCount + 2, 'Retry deliberately submits the failed turn again');
+    assert.deepEqual(JSON.parse(requestBodies.at(-1)), failedTurnBody, 'retry reuses the same turn history');
+    fetchResolvers.pop()({ ok: true, status: 200, json: async () => ({
+      response: 'More detail after follow-up.',
+      followUp: { offer: 'Want another detail?', prompt: 'Explain one more detail.' },
+    }) });
+    await retryRequest;
     assert.equal(answer.textContent, 'First line α.\n\nSecond line 東京.', 'the original response remains unchanged');
     assert.equal(followUpArea.children[3].textContent, 'Follow-up generated.');
     assert.equal(followUpArea.children[4].textContent, 'More detail after follow-up.');
+
+    const secondOfferPanel = followUpArea.children[7].children[0];
+    const secondYes = secondOfferPanel.children[2].children[0];
+    const secondTurnRequest = secondYes.trigger('click');
+    const secondTurnBody = JSON.parse(requestBodies.at(-1));
+    assert.deepEqual(secondTurnBody.history, [{ prompt: 'Give a concrete example.', response: 'More detail after follow-up.' }]);
+    assert.equal(secondTurnBody.nextPrompt, 'Explain one more detail.');
+    fetchResolvers.pop()({ ok: true, status: 200, json: async () => ({ response: 'A further detail with enough text to expand.', followUp: null }) });
+    await secondTurnRequest;
+    secondYes.trigger('click');
+    assert.equal(generationRequests, followUpRequestCount + 3, 'a completed turn cannot be duplicated');
+    assert.equal(secondOfferPanel.children[5].hidden, false, 'long follow-up answers expose Show more');
+    secondOfferPanel.children[5].trigger('click');
+    assert.equal(secondOfferPanel.children[5].getAttribute('aria-expanded'), 'true');
+    const followUpAnswers = [followUpArea.children[4], secondOfferPanel.children[4], contextOfferPanel.children[4]];
+    const followUpToggles = [followUpArea.children[5], secondOfferPanel.children[5], contextOfferPanel.children[5]];
+    const followUpAnswerIds = followUpAnswers.map(followUpAnswer => followUpAnswer.id);
+    assert.equal(new Set(followUpAnswerIds).size, 3, 'follow-up answer IDs are unique across cards and turns');
+    assert.deepEqual(followUpAnswerIds, [
+      `${card.id}-follow-up-answer-turn-1`,
+      `${card.id}-follow-up-answer-turn-2`,
+      `${contextCard.id}-follow-up-answer-turn-1`,
+    ]);
+    for (let index = 0; index < followUpToggles.length; index++) {
+      const toggle = followUpToggles[index];
+      const targetId = toggle.getAttribute('aria-controls');
+      assert.equal(targetId, followUpAnswers[index].id, 'each Show more / Show less button controls its own answer');
+      assert.equal(followUpAnswers.filter(followUpAnswer => followUpAnswer.id === targetId).length, 1);
+    }
 
     toggle.trigger('click');
     const requestsBeforeDownload = generationRequests;
@@ -212,6 +264,13 @@ test('renders response states below Response and hides/restores the prompt previ
     assert.match(pdfText, /Raw only/);
     assert.match(pdfText, /Give a concrete example\./);
     assert.match(pdfText, /More detail after follow-up\./);
+    assert.match(pdfText, /Explain one more detail\./);
+    assert.match(pdfText, /A further detail with enough text to expand\./);
+    const exportedTurns = pdfDownloads[0].definition.content.slice(6).map(section =>
+      Array.isArray(section.text) ? section.text.map(run => run.text).join('') : section.text);
+    assert.ok(exportedTurns.indexOf('Give a concrete example.') < exportedTurns.indexOf('More detail after follow-up.'));
+    assert.ok(exportedTurns.indexOf('More detail after follow-up.') < exportedTurns.indexOf('Explain one more detail.'));
+    assert.ok(exportedTurns.indexOf('Explain one more detail.') < exportedTurns.indexOf('A further detail with enough text to expand.'));
     const promptRuns = pdfDownloads[0].definition.content[3].text;
     const responseRuns = pdfDownloads[0].definition.content[5].text;
     assert.equal(promptRuns.map(run => run.text).join(''), 'Explain tides – café Ω 東京 コーヒー.\nSecond prompt line.\n\nRespond in English. Preserve quoted text and code in their original language when appropriate.');
@@ -304,6 +363,10 @@ test('renders response states below Response and hides/restores the prompt previ
     await japaneseFollowUpRequest;
     assert.equal(japaneseCard.children[3].children[2].textContent, '必需品を三つ持っていきましょう。', 'follow-up errors preserve the original answer');
     assert.equal(japaneseFollowUpArea.children[3].textContent, 'この接続からのAIリクエストが多すぎます。1分後にもう一度お試しください。');
+    assert.equal(japaneseFollowUpArea.children[6].hidden, false, 'a Japanese rate-limit error offers deliberate Retry');
+    const japaneseRetry = japaneseFollowUpArea.children[6].trigger('click');
+    fetchResolvers.shift()({ ok: true, status: 200, json: async () => ({ response: '追加の回答です。', followUp: null }) });
+    await japaneseRetry;
     await japaneseCard.children[1].trigger('click');
     const japanesePdf = pdfDownloads[1].definition;
     const cardTitleRuns = japanesePdf.content[1].text;
@@ -312,9 +375,18 @@ test('renders response states below Response and hides/restores the prompt previ
     assert.equal(cardTitleRuns.map(run => run.text).join(''), '基本プロンプトのみ');
     assert.equal(promptHeadingRuns.map(run => run.text).join(''), '送信したプロンプト');
     assert.equal(responseHeadingRuns.map(run => run.text).join(''), '回答');
+    const japaneseTurnTitleRuns = japanesePdf.content[6].text;
+    const japaneseTurnPromptRuns = japanesePdf.content[8].text;
+    const japaneseTurnResponseRuns = japanesePdf.content[10].text;
+    assert.equal(japaneseTurnTitleRuns.map(run => run.text).join(''), '追加回答 1');
+    assert.equal(japaneseTurnPromptRuns.map(run => run.text).join(''), '具体例を示してください。');
+    assert.equal(japaneseTurnResponseRuns.map(run => run.text).join(''), '追加の回答です。');
     assert.ok(cardTitleRuns.every(run => run.font === 'NotoSansJP'));
     assert.ok(promptHeadingRuns.every(run => run.font === 'NotoSansJP'));
     assert.ok(responseHeadingRuns.every(run => run.font === 'NotoSansJP'));
+    assert.ok(japaneseTurnTitleRuns.some(run => run.text.includes('追加回答') && run.font === 'NotoSansJP'));
+    assert.ok(japaneseTurnPromptRuns.every(run => run.font === 'NotoSansJP'));
+    assert.ok(japaneseTurnResponseRuns.every(run => run.font === 'NotoSansJP'));
 
     const errorGeneration = run();
     fetchResolvers.shift()({ ok: false, status: 502, json: async () => ({

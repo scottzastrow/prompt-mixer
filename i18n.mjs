@@ -20,6 +20,7 @@ const messages = {
     rateStopped: 'Not sent because a rate limit was reached.',
     followUp: 'Follow-up', followUpPrompt: 'Follow-up prompt', followUpResponse: 'Follow-up response',
     followUpYes: 'Yes', followUpNo: 'No', followUpLoading: 'Generating follow-up…', followUpGenerated: 'Follow-up generated.',
+    followUpRetry: 'Retry', followUpTurn: 'Follow-up {count}',
     errors: {
       unsupported_media_type: 'Send a JSON request.', request_too_large: 'Prompt is too long.',
       invalid_json: 'Invalid JSON.', invalid_prompt: 'Enter a prompt of up to 6,000 characters.',
@@ -30,6 +31,7 @@ const messages = {
       upstream_busy: 'AI is busy or usage is limited. Try again later.', upstream_unavailable: 'AI response unavailable. Please try again.',
       empty_response: 'The AI returned no text. Please try again.', not_found: 'Not found.', page_load_failed: 'Could not load the page.',
       invalid_ai_response: 'The AI returned an invalid structured response. Please try again.', invalid_follow_up: 'The follow-up request is invalid or too long.',
+        conversation_limit_reached: 'This conversation reached its limit. Start a new prompt to continue.',
       followUp: 'Follow-up', followUpPrompt: 'Follow-up prompt', followUpResponse: 'Follow-up response',
     },
   },
@@ -54,6 +56,7 @@ const messages = {
     rateStopped: '利用上限に達したため送信されませんでした。',
     followUp: '追加質問', followUpPrompt: '追加質問のプロンプト', followUpResponse: '追加回答',
     followUpYes: 'はい', followUpNo: 'いいえ', followUpLoading: '追加回答を生成中…', followUpGenerated: '追加回答を生成しました。',
+    followUpRetry: '再試行', followUpTurn: '追加回答 {count}',
     errors: {
       unsupported_media_type: 'JSON形式で送信してください。', request_too_large: 'プロンプトが長すぎます。',
       invalid_json: 'JSONが正しくありません。', invalid_prompt: '6,000文字以内のプロンプトを入力してください。',
@@ -66,6 +69,7 @@ const messages = {
       empty_response: 'AIから回答がありませんでした。もう一度お試しください。', not_found: 'ページが見つかりません。',
       page_load_failed: 'ページを読み込めませんでした。',
       invalid_ai_response: 'AIから正しい形式の回答を受け取れませんでした。もう一度お試しください。', invalid_follow_up: '追加質問のリクエストが無効か、長すぎます。',
+        conversation_limit_reached: 'この会話は上限に達しました。新しいプロンプトを開始してください。',
       followUp: '追加質問', followUpPrompt: '追加質問のプロンプト', followUpResponse: '追加回答',
     },
   },

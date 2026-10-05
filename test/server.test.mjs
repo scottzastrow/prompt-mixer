@@ -37,7 +37,6 @@ test('serves the UI and rejects invalid input without calling OpenAI', async () 
         assert.match(source, /Roboto-Regular\.ttf/);
       }
     }
-
     const japaneseFont = await realFetch(`${base}/fonts/NotoSansJP-Regular.otf`);
     assert.equal(japaneseFont.status, 200);
     assert.match(japaneseFont.headers.get('Content-Type'), /font\/otf/);
@@ -89,7 +88,6 @@ test('uses server side key and returns model output without exposing credentials
     });
     assert.equal(result.status, 200);
     assert.deepEqual(await result.json(), { response: 'A concise explanation.', followUp: { offer: 'Want an example?', prompt: 'Give an example.' } });
-    assert.equal(submitted.input, 'Explain recursion.\n\nRespond in Japanese.');
     assert.equal(submitted.max_output_tokens, 3000);
     assert.deepEqual(submitted.reasoning, { effort: 'low' });
     assert.equal(submitted.text.format.type, 'json_schema');
@@ -106,7 +104,7 @@ test('uses server side key and returns model output without exposing credentials
   }
 });
 
-test('generates a follow-up with the original context and a null-only follow-up schema', async () => {
+test('generates a follow-up from ordered history and allows another structured offer', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'prompt-mixer-follow-up-test-'));
   process.env.LIMIT_STATE_FILE = join(dir, 'limits.json');
   process.env.OPENAI_API_KEY = 'test-only-secret';
@@ -116,25 +114,39 @@ test('generates a follow-up with the original context and a null-only follow-up 
     assert.equal(url, 'https://api.openai.com/v1/responses');
     submitted = JSON.parse(options.body);
     return new Response(JSON.stringify({ output: [{ content: [{
-      type: 'output_text', text: structuredOutput('A worked example.'),
+      type: 'output_text', text: structuredOutput('A worked example.', { offer: 'One more question?', prompt: 'What else?' }),
     }] }] }), { status: 200 });
   };
 
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   try {
-    const prompt = 'Original exact prompt\n\nAnswer: Original answer\n\nNext: Give a worked example.';
+    const payload = {
+      originalPrompt: 'Original exact prompt',
+      originalResponse: 'Original answer',
+      history: [{ prompt: 'Earlier follow-up', response: 'Earlier response.' }],
+      nextPrompt: 'Give a worked example.',
+      locale: 'en',
+    };
     const result = await realFetch(`http://127.0.0.1:${server.address().port}/api/follow-up`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, locale: 'en' }),
+      body: JSON.stringify(payload),
     });
 
     assert.equal(result.status, 200);
-    assert.deepEqual(await result.json(), { response: 'A worked example.', followUp: null });
-    assert.equal(submitted.input, prompt);
+    assert.deepEqual(await result.json(), {
+      response: 'A worked example.', followUp: { offer: 'One more question?', prompt: 'What else?' },
+    });
+    assert.deepEqual(submitted.input, [
+      { role: 'user', content: 'Original exact prompt' },
+      { role: 'assistant', content: 'Original answer' },
+      { role: 'user', content: 'Earlier follow-up' },
+      { role: 'assistant', content: 'Earlier response.' },
+      { role: 'user', content: 'Give a worked example.' },
+    ]);
     assert.equal(submitted.text.format.name, 'prompt_mixer_follow_up');
-    assert.deepEqual(submitted.text.format.schema.properties.follow_up, { type: 'null' });
-    assert.equal(submitted.instructions.includes('Set follow_up to null'), true);
+    assert.deepEqual(submitted.text.format.schema.properties.follow_up.anyOf.map(schema => schema.type), ['object', 'null']);
+    assert.match(submitted.instructions, /offer one further next step/);
   } finally {
     server.close();
     globalThis.fetch = oldFetch;
@@ -144,7 +156,56 @@ test('generates a follow-up with the original context and a null-only follow-up 
   }
 });
 
-test('logs empty OpenAI output metadata without exposing prompt or content', async () => {
+test('rejects follow-up turn, conversation-text, and body-size limits before OpenAI', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'prompt-mixer-conversation-limit-'));
+    process.env.LIMIT_STATE_FILE = join(dir, 'limits.json');
+    process.env.OPENAI_API_KEY = 'test-only-secret';
+    const oldFetch = globalThis.fetch;
+    let paidCalls = 0;
+    globalThis.fetch = async () => {
+      paidCalls++;
+      return new Response('{}', { status: 200 });
+    };
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    const request = (payload, locale = 'ja') => realFetch(`http://127.0.0.1:${server.address().port}/api/follow-up`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-UI-Locale': locale },
+      body: JSON.stringify({ locale, ...payload }),
+    });
+    const base = { originalPrompt: 'Original prompt', originalResponse: 'Original answer', nextPrompt: 'Continue.' };
+    try {
+      const tooManyTurns = await request({
+        ...base,
+        history: Array.from({ length: 8 }, (_, index) => ({ prompt: `Prompt ${index}`, response: `Answer ${index}` })),
+      });
+      assert.equal(tooManyTurns.status, 413);
+      assert.equal((await tooManyTurns.json()).errorCode, 'conversation_limit_reached');
+
+      const tooMuchText = await request({
+        ...base,
+        originalResponse: '答'.repeat(24000),
+        history: [],
+      });
+      assert.equal(tooMuchText.status, 413);
+      assert.deepEqual(await tooMuchText.json(), {
+        errorCode: 'conversation_limit_reached',
+        error: 'この会話は上限に達しました。新しいプロンプトを開始してください。',
+      });
+
+      const tooLargeBody = await request({ ...base, history: [], nextPrompt: 'x'.repeat(200_100) });
+      assert.equal(tooLargeBody.status, 413);
+      assert.equal((await tooLargeBody.json()).errorCode, 'conversation_limit_reached');
+      assert.equal(paidCalls, 0);
+    } finally {
+      server.close();
+      globalThis.fetch = oldFetch;
+      delete process.env.OPENAI_API_KEY;
+      delete process.env.LIMIT_STATE_FILE;
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('logs empty OpenAI output metadata without exposing prompt or content', async () => {
   process.env.OPENAI_API_KEY = 'test-only-secret';
   process.env.LIMIT_STATE_FILE = join(tmpdir(), `prompt-mixer-empty-${Date.now()}.json`);
   const oldFetch = globalThis.fetch;
@@ -293,7 +354,9 @@ test('limits persist across restarts, distinguish IPs, and block before the paid
     const base = `http://127.0.0.1:${server.address().port}`;
     const request = (ip, path = '/api/generate') => realFetch(`${base}${path}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': `forged, ${ip}` },
-      body: JSON.stringify({ prompt: 'Hello' }),
+      body: JSON.stringify(path === '/api/follow-up'
+        ? { originalPrompt: 'Hello', originalResponse: 'Answer', history: [], nextPrompt: 'Tell me more.' }
+        : { prompt: 'Hello' }),
     });
     try {
       assert.equal((await request('192.0.2.3')).status, 200);
