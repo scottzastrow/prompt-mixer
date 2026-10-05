@@ -46,7 +46,6 @@ Earlier iterations and deployment are recorded below. The current iteration impl
 
 ## Iteration 8 — optional AI follow-up
 
-- [ ] I8-T1: Return each answer and nullable follow-up offer using OpenAI Structured Outputs and a supported strict JSON Schema; do not detect offer phrases.
 - [x] I8-T1: Return each answer and nullable follow-up offer using OpenAI Structured Outputs and a supported strict JSON Schema; do not detect offer phrases.
 - [x] I8-T2: Add a separate, rate-limited and logged follow-up request using the card's exact prompt, original answer, and follow-up prompt; constrain its response to an answer with no further offer.
 - [x] I8-T3: Add localized Yes/No controls and follow-up loading, success, dismissal, and error states; prevent duplicate requests and retain the original answer on failure.
@@ -54,6 +53,7 @@ Earlier iterations and deployment are recorded below. The current iteration impl
 - [x] I8-T5: Include each completed follow-up's exact prompt and full answer in that card's PDF without changing the original response or issuing another request.
 - [x] I8-T6: Test Yes, No, no offer, errors, 429 rate limits, cancellation, both locales, and PDF inclusion using simulated API responses; run `npm test` and `git diff --check` without an API key.
 - [ ] I8-T7: Perform a live Lightsail verification separately when deployment access is available.
+- [x] I8-T7: Verify on Lightsail that English Yes generates a follow-up while preserving the original answer, No dismisses the offer, Japanese Yes generates a Japanese follow-up, and English/Japanese PDFs include the original prompt, answer, and completed follow-up.
 
 ## Deployment and production checks
 
