@@ -96,3 +96,18 @@ Verification:
 5. Clearing an optional field removes it from the mix.
 6. Clear returns the interface to its empty starting state.
 7. Generate Response uses the same prompt shown in the preview.
+## Optional AI follow-up
+
+- Each generated response may include one optional follow-up offer.
+- Return the answer and follow-up as structured data rather than detecting phrases in the answer.
+- A follow-up contains an offer for the user and a next prompt. When no follow-up is useful, return null.
+- Display the offer with Yes and No buttons beneath its response.
+- Yes sends a new AI request using the original exact prompt, that card’s answer, and the follow-up prompt. Display the result beneath the original response.
+- No dismisses the offer without making an AI request.
+- Allow one follow-up per comparison card. Follow-up answers do not produce additional offers.
+- Prevent duplicate submissions and preserve the original answer if the follow-up fails.
+- Follow-up requests use the existing token limits, rate limits, and database logging.
+- Localize offers, buttons, loading states, and errors for English and Japanese.
+- Field changes, preset selection, Clear, and language changes cancel pending follow-ups and discard stale results.
+- PDF downloads include any completed follow-up with its exact prompt and full answer, without another AI request.
+- Verify the flow locally with simulated responses, then perform a live check on Lightsail.

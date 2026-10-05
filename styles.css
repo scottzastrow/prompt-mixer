@@ -337,6 +337,17 @@ textarea:focus-visible {
 .answer-preview.is-collapsed { max-height: 7.75em; overflow: hidden; }
 .answer-toggle { margin-top: 8px; border: 0; padding: 4px 0; background: transparent; color: var(--primary); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
 .answer-toggle:hover, .answer-toggle:focus-visible { text-decoration: underline; }
+.follow-up-section { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--stroke); }
+.follow-up-section h4 { margin: 0 0 6px; font-size: 14px; }
+.follow-up-offer { margin: 0 0 10px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
+.follow-up-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.follow-up-actions button { min-height: 36px; padding: 7px 12px; border: 1px solid var(--primary-border); border-radius: 6px; background: #fff; color: var(--primary); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.follow-up-actions button:first-child { background: var(--primary); color: #fff; }
+.follow-up-actions button:hover:not(:disabled), .follow-up-actions button:focus-visible { filter: brightness(.96); }
+.follow-up-actions button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.follow-up-actions button:disabled { opacity: .55; cursor: wait; }
+.follow-up-status { margin: 8px 0; color: var(--muted); font-size: 13px; }
+.follow-up-answer { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55; }
 .answer-toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
 @media (max-width: 600px) {
   body { padding: 12px; }

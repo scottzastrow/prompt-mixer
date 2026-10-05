@@ -18,6 +18,8 @@ const messages = {
     languageDirective: 'Respond in English. Preserve quoted text and code in their original language when appropriate.',
     pdfTitle: 'Prompt Mixer', pdfExactPrompt: 'Exact submitted prompt', pdfResponse: 'Response',
     rateStopped: 'Not sent because a rate limit was reached.',
+    followUp: 'Follow-up', followUpPrompt: 'Follow-up prompt', followUpResponse: 'Follow-up response',
+    followUpYes: 'Yes', followUpNo: 'No', followUpLoading: 'Generating follow-up…', followUpGenerated: 'Follow-up generated.',
     errors: {
       unsupported_media_type: 'Send a JSON request.', request_too_large: 'Prompt is too long.',
       invalid_json: 'Invalid JSON.', invalid_prompt: 'Enter a prompt of up to 6,000 characters.',
@@ -27,6 +29,8 @@ const messages = {
       rate_limit_unavailable: 'AI responses are temporarily unavailable. Please try again later.',
       upstream_busy: 'AI is busy or usage is limited. Try again later.', upstream_unavailable: 'AI response unavailable. Please try again.',
       empty_response: 'The AI returned no text. Please try again.', not_found: 'Not found.', page_load_failed: 'Could not load the page.',
+      invalid_ai_response: 'The AI returned an invalid structured response. Please try again.', invalid_follow_up: 'The follow-up request is invalid or too long.',
+      followUp: 'Follow-up', followUpPrompt: 'Follow-up prompt', followUpResponse: 'Follow-up response',
     },
   },
   ja: {
@@ -48,6 +52,8 @@ const messages = {
     languageDirective: '日本語で回答してください。必要に応じて、引用文とコードは元の言語のまま保持してください。',
     pdfTitle: 'Prompt Mixer', pdfExactPrompt: '送信したプロンプト', pdfResponse: '回答',
     rateStopped: '利用上限に達したため送信されませんでした。',
+    followUp: '追加質問', followUpPrompt: '追加質問のプロンプト', followUpResponse: '追加回答',
+    followUpYes: 'はい', followUpNo: 'いいえ', followUpLoading: '追加回答を生成中…', followUpGenerated: '追加回答を生成しました。',
     errors: {
       unsupported_media_type: 'JSON形式で送信してください。', request_too_large: 'プロンプトが長すぎます。',
       invalid_json: 'JSONが正しくありません。', invalid_prompt: '6,000文字以内のプロンプトを入力してください。',
@@ -59,6 +65,8 @@ const messages = {
       upstream_unavailable: 'AIの回答を利用できません。もう一度お試しください。',
       empty_response: 'AIから回答がありませんでした。もう一度お試しください。', not_found: 'ページが見つかりません。',
       page_load_failed: 'ページを読み込めませんでした。',
+      invalid_ai_response: 'AIから正しい形式の回答を受け取れませんでした。もう一度お試しください。', invalid_follow_up: '追加質問のリクエストが無効か、長すぎます。',
+      followUp: '追加質問', followUpPrompt: '追加質問のプロンプト', followUpResponse: '追加回答',
     },
   },
 };

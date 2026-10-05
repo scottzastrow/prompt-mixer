@@ -96,6 +96,8 @@ test('renders response states below Response and hides/restores the prompt previ
   const registeredFonts = [];
   const virtualFontFiles = [];
   const requestBodies = [];
+  const requestUrls = [];
+  const requestSignals = [];
   let rejectNextFetch = null;
   let generationRequests = 0;
   globalThis.pdfMake = {
@@ -110,6 +112,8 @@ test('renders response states below Response and hides/restores the prompt previ
     return new Promise((resolve, reject) => {
       generationRequests += 1;
       requestBodies.push(options.body);
+      requestUrls.push(url);
+      requestSignals.push(options.signal);
       if (rejectNextFetch) {
         const error = rejectNextFetch;
         rejectNextFetch = null;
@@ -148,7 +152,10 @@ test('renders response states below Response and hides/restores the prompt previ
     assert.equal(card.children.indexOf(exactPrompt) < card.children.indexOf(responseContent), true);
     assert.equal(responseContent.children.indexOf(status), responseContent.children.indexOf(responseHeading) + 1);
 
-    fetchResolvers.shift()({ ok: true, status: 200, json: async () => ({ response: 'First line α.\n\nSecond line 東京.' }) });
+    fetchResolvers.shift()({ ok: true, status: 200, json: async () => ({
+      response: 'First line α.\n\nSecond line 東京.',
+      followUp: { offer: 'Would you like an example?', prompt: 'Give a concrete example.' },
+    }) });
     await new Promise(resolve => setImmediate(resolve));
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(status.textContent, 'Response generated.');
@@ -158,8 +165,9 @@ test('renders response states below Response and hides/restores the prompt previ
     toggle.trigger('click');
     assert.equal(toggle.getAttribute('aria-expanded'), 'true');
     assert.equal(answer.classes.has('is-collapsed'), false);
-
-    fetchResolvers.shift()({ ok: true, status: 200, json: async () => ({ response: 'Context answer.' }) });
+    fetchResolvers.shift()({ ok: true, status: 200, json: async () => ({
+      response: 'Context answer.', followUp: { offer: 'Would an analogy help?', prompt: 'Explain with an analogy.' },
+    }) });
     await new Promise(resolve => setImmediate(resolve));
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(elements.get('response-cards').children[2].children[3].children[1].textContent, 'Generating…');
@@ -172,6 +180,23 @@ test('renders response states below Response and hides/restores the prompt previ
     assert.equal(toggle.textContent, 'Show less');
     assert.equal(answer.classes.has('is-collapsed'), false);
     assert.equal(toggle.hidden, false);
+    assert.equal(elements.get('response-cards').children[2].children[3].children[4].hidden, true, 'a null follow-up hides its section');
+
+    const followUpArea = responseContent.children[4];
+    const followUpActions = followUpArea.children[2];
+    const yesButton = followUpActions.children[0];
+    const followUpRequestCount = generationRequests;
+    const followUpRequest = yesButton.trigger('click');
+    yesButton.trigger('click');
+    assert.equal(generationRequests, followUpRequestCount + 1, 'a card accepts only one follow-up request');
+    assert.equal(requestUrls.at(-1), '/api/follow-up');
+    const exactFollowUpPrompt = JSON.parse(requestBodies.at(-1)).prompt;
+    assert.match(exactFollowUpPrompt, /Explain tides – café[\s\S]*First line α\.[\s\S]*Give a concrete example\./);
+    fetchResolvers.shift()({ ok: true, status: 200, json: async () => ({ response: 'More detail after follow-up.', followUp: null }) });
+    await followUpRequest;
+    assert.equal(answer.textContent, 'First line α.\n\nSecond line 東京.', 'the original response remains unchanged');
+    assert.equal(followUpArea.children[3].textContent, 'Follow-up generated.');
+    assert.equal(followUpArea.children[4].textContent, 'More detail after follow-up.');
 
     toggle.trigger('click');
     const requestsBeforeDownload = generationRequests;
@@ -185,6 +210,8 @@ test('renders response states below Response and hides/restores the prompt previ
     const pdfText = JSON.stringify(pdfDownloads[0].definition);
     assert.match(pdfText, /Prompt Mixer/);
     assert.match(pdfText, /Raw only/);
+    assert.match(pdfText, /Give a concrete example\./);
+    assert.match(pdfText, /More detail after follow-up\./);
     const promptRuns = pdfDownloads[0].definition.content[3].text;
     const responseRuns = pdfDownloads[0].definition.content[5].text;
     assert.equal(promptRuns.map(run => run.text).join(''), 'Explain tides – café Ω 東京 コーヒー.\nSecond prompt line.\n\nRespond in English. Preserve quoted text and code in their original language when appropriate.');
@@ -258,10 +285,25 @@ test('renders response states below Response and hides/restores the prompt previ
     const japaneseGeneration = run();
     const japanesePrompt = fetchResolvers.shift();
     assert.match(JSON.parse(requestBodies.at(-1)).prompt, /日本語で回答してください/);
-    japanesePrompt({ ok: true, status: 200, json: async () => ({ response: '必需品を三つ持っていきましょう。' }) });
+    japanesePrompt({ ok: true, status: 200, json: async () => ({
+      response: '必需品を三つ持っていきましょう。',
+      followUp: { offer: '具体例を見ますか？', prompt: '具体例を示してください。' },
+    }) });
     await japaneseGeneration;
     const japaneseCard = elements.get('response-cards').children[0];
     assert.equal(japaneseCard.children[0].textContent, '基本プロンプトのみ');
+    const japaneseFollowUpArea = japaneseCard.children[3].children[4];
+    const japaneseFollowUpActions = japaneseFollowUpArea.children[2];
+    assert.equal(japaneseFollowUpActions.children[0].textContent, 'はい');
+    assert.equal(japaneseFollowUpActions.children[1].textContent, 'いいえ');
+    const japaneseFollowUpRequest = japaneseFollowUpActions.children[0].trigger('click');
+    assert.equal(japaneseFollowUpArea.children[3].textContent, '追加回答を生成中…');
+    fetchResolvers.shift()({ ok: false, status: 429, json: async () => ({
+      errorCode: 'rate_ip_minute', error: 'この接続からのAIリクエストが多すぎます。1分後にもう一度お試しください。',
+    }) });
+    await japaneseFollowUpRequest;
+    assert.equal(japaneseCard.children[3].children[2].textContent, '必需品を三つ持っていきましょう。', 'follow-up errors preserve the original answer');
+    assert.equal(japaneseFollowUpArea.children[3].textContent, 'この接続からのAIリクエストが多すぎます。1分後にもう一度お試しください。');
     await japaneseCard.children[1].trigger('click');
     const japanesePdf = pdfDownloads[1].definition;
     const cardTitleRuns = japanesePdf.content[1].text;
@@ -300,6 +342,69 @@ test('renders response states below Response and hides/restores the prompt previ
     await malformedRateLimitGeneration;
     assert.equal(generationRequests, requestsBeforeMalformedRateLimit + 1, 'a malformed 429 response still stops later requests');
     assert.equal(elements.get('response-cards').children[1].children[3].children[1].textContent, '利用上限に達したため送信されませんでした。');
+
+    elements.get('raw-prompt').value = 'Cancel a pending follow-up.';
+    elements.get('include-context').checked = false;
+    form.trigger('input');
+    const cancellationGeneration = run();
+    fetchResolvers.shift()({ ok: true, status: 200, json: async () => ({
+      response: 'Original stays visible only until cancellation.',
+      followUp: { offer: 'Continue?', prompt: 'Continue the answer.' },
+    }) });
+    await cancellationGeneration;
+    const cancellationCard = elements.get('response-cards').children[0];
+    const pendingFollowUp = cancellationCard.children[3].children[4].children[2].children[0].trigger('click');
+    const followUpSignal = requestSignals.at(-1);
+    form.trigger('input');
+    assert.equal(followUpSignal.aborted, true, 'editing fields aborts a pending follow-up request');
+    fetchResolvers.shift()({ ok: true, status: 200, json: async () => ({ response: 'Stale follow-up.', followUp: null }) });
+    await pendingFollowUp;
+    assert.equal(elements.get('response-cards').children.length, 0, 'late follow-up responses stay cleared');
+
+    const localeCancellationGeneration = run();
+    fetchResolvers.shift()({ ok: true, status: 200, json: async () => ({
+      response: 'Original answer before language switch.',
+      followUp: { offer: '続けますか？', prompt: '続きを説明してください。' },
+    }) });
+    await localeCancellationGeneration;
+    const localeCancellationCard = elements.get('response-cards').children[0];
+    const localePendingFollowUp = localeCancellationCard.children[3].children[4].children[2].children[0].trigger('click');
+    const localeFollowUpSignal = requestSignals.at(-1);
+    languageSelect.value = 'en';
+    languageSelect.trigger('change');
+    assert.equal(localeFollowUpSignal.aborted, true, 'language changes abort pending follow-up requests');
+    assert.equal(elements.get('response-cards').children.length, 0);
+    fetchResolvers.shift()({ ok: true, status: 200, json: async () => ({ response: 'Stale translated follow-up.', followUp: null }) });
+    await localePendingFollowUp;
+    languageSelect.value = 'ja';
+    languageSelect.trigger('change');
+
+    elements.get('raw-prompt').value = 'Dismiss the first card offer.';
+    elements.get('context-input').value = 'A later card is still loading.';
+    elements.get('include-context').checked = true;
+    form.trigger('input');
+    const dismissalGeneration = run();
+    fetchResolvers.shift()({ ok: true, status: 200, json: async () => ({
+      response: 'First card response.',
+      followUp: { offer: '続けますか？', prompt: '続きを説明してください。' },
+    }) });
+    await new Promise(resolve => setImmediate(resolve));
+    await new Promise(resolve => setImmediate(resolve));
+    const dismissalCard = elements.get('response-cards').children[0];
+    const dismissedFollowUpArea = dismissalCard.children[3].children[4];
+    const dismissalNoButton = dismissedFollowUpArea.children[2].children[1];
+    assert.equal(elements.get('response-cards').children[1].children[3].children[1].textContent, '生成中…');
+    const requestsBeforeDismissal = generationRequests;
+    const urlsBeforeDismissal = requestUrls.length;
+    dismissalNoButton.trigger('click');
+      assert.equal(requestUrls.slice(urlsBeforeDismissal).includes('/api/follow-up'), false);
+    assert.equal(dismissedFollowUpArea.hidden, true, 'No dismisses the first card offer while another card is loading');
+    assert.equal(generationRequests, requestsBeforeDismissal, 'No does not send a follow-up request');
+
+    fetchResolvers.shift()({ ok: true, status: 200, json: async () => ({ response: 'Later card response.', followUp: null }) });
+    await dismissalGeneration;
+    assert.equal(dismissedFollowUpArea.hidden, true, 'later comparison updates leave the offer dismissed');
+    assert.equal(requestUrls.slice(urlsBeforeDismissal).includes('/api/follow-up'), false);
 
     elements.get('clear-button').trigger('click');
     assert.equal(languageSelect.value, 'ja', 'Clear preserves the selected language');

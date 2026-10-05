@@ -92,16 +92,39 @@ function logIncompleteOpenAIResponse(response, data) {
   });
 }
 
-async function generate(req, res) {
+function responseSchema(allowFollowUp) {
+  return {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      answer: { type: 'string' },
+      follow_up: allowFollowUp ? {
+        anyOf: [
+          {
+            type: 'object',
+            additionalProperties: false,
+            properties: { offer: { type: 'string' }, prompt: { type: 'string' } },
+            required: ['offer', 'prompt'],
+          },
+          { type: 'null' },
+        ],
+      } : { type: 'null' },
+    },
+    required: ['answer', 'follow_up'],
+  };
+}
+
+async function generate(req, res, isFollowUp = false) {
   if (!req.headers['content-type']?.toLowerCase().startsWith('application/json')) {
     sendError(res, 415, 'unsupported_media_type');
     return;
   }
 
   let body = '';
+  const maxBodyLength = isFollowUp ? 40000 : 12000;
   for await (const chunk of req) {
     body += chunk;
-    if (body.length > 12000) {
+    if (body.length > maxBodyLength) {
       sendError(res, 413, 'request_too_large');
       return;
     }
@@ -117,8 +140,9 @@ async function generate(req, res) {
     sendError(res, 400, 'invalid_json');
     return;
   }
-  if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 6000) {
-    sendError(res, 400, 'invalid_prompt', locale);
+  const maxPromptLength = isFollowUp ? 30000 : 6000;
+  if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > maxPromptLength) {
+    sendError(res, 400, isFollowUp ? 'invalid_follow_up' : 'invalid_prompt', locale);
     return;
   }
   if (!process.env.OPENAI_API_KEY) {
@@ -152,8 +176,19 @@ async function generate(req, res) {
       body: JSON.stringify({
         model,
         input: prompt,
+        instructions: isFollowUp
+          ? 'Answer the follow-up request in its requested language. Set follow_up to null.'
+          : 'Answer the input prompt in its requested language. If a useful next step is available, set follow_up.offer to a concise offer for the user and follow_up.prompt to the exact prompt to run if accepted. Otherwise set follow_up to null.',
         max_output_tokens: 3000,
         reasoning: { effort: 'low' },
+        text: {
+          format: {
+            type: 'json_schema',
+            name: isFollowUp ? 'prompt_mixer_follow_up' : 'prompt_mixer_response',
+            strict: true,
+            schema: responseSchema(!isFollowUp),
+          },
+        },
         store: false,
       }),
       signal: AbortSignal.timeout(60000),
@@ -176,13 +211,31 @@ async function generate(req, res) {
       sendError(res, 502, 'empty_response', locale);
       return;
     }
+    let structured;
     try {
-      await logInteraction(prompt, output);
+      structured = JSON.parse(output);
+    } catch {
+      sendError(res, 502, 'invalid_ai_response', locale);
+      return;
+    }
+    const followUp = structured?.follow_up;
+    const validFollowUp = followUp === null || (
+      followUp && typeof followUp.offer === 'string' && followUp.offer.trim() &&
+      typeof followUp.prompt === 'string' && followUp.prompt.trim()
+    );
+    if (typeof structured?.answer !== 'string' || !structured.answer.trim() ||
+        !validFollowUp || (isFollowUp && followUp !== null)) {
+      sendError(res, 502, 'invalid_ai_response', locale);
+      return;
+    }
+    const answer = structured.answer.trim();
+    try {
+      await logInteraction(prompt, answer);
     } catch (error) {
       console.error('Could not log AI interaction:', error.name);
     }
 
-    send(res, 200, { response: output });
+    send(res, 200, { response: answer, followUp: isFollowUp ? null : followUp });
   } catch (error) {
     console.error('OpenAI request failed:', error.name);
     sendError(res, 502, 'upstream_unavailable', locale);
@@ -197,6 +250,10 @@ export const server = createServer(async (req, res) => {
   }
   if (path === '/api/generate' && req.method === 'POST') {
     await generate(req, res);
+    return;
+  }
+  if (path === '/api/follow-up' && req.method === 'POST') {
+    await generate(req, res, true);
     return;
   }
   if (path === '/vfs_fonts.js' && req.method === 'GET') {
