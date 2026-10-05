@@ -8,7 +8,7 @@ Make the effect of prompt context visible in both the assembled instructions and
 
 The raw prompt is required. Context, Role, and Constraints are optional and are included only when their checkboxes are selected and their fields are nonempty. The combined prompt updates live as the user types or changes selections. Keep the button label **Generate Response**.
 
-Provide English and Japanese interface languages. Default to English and persist the selected language locally. Put an accessible, compact language dropdown in the header immediately after Clear, with keyboard and visual order Presets → Clear → Language. Keep this arrangement usable on narrow screens. Translate all interface labels, help text, placeholders, presets, comparison card titles, loading/success/error and validation messages, tooltips, accessibility labels, answer expansion controls, and PDF headings. Keep the product name Prompt Mixer unchanged and set the document language to `en` or `ja`.
+Provide English and Japanese interface languages. Choose the initial language from the browser: a valid saved selection (`en` or `ja`) takes priority; otherwise inspect `navigator.languages` in preference order, using `navigator.language` as a fallback when the list is unavailable or empty. Match preferences case-insensitively: `en` and `en-*` select English and `ja` and `ja-*` select Japanese; skip unsupported languages and default to English when no supported preference exists. Unavailable browser language information or localStorage must not break initialization. Persist explicit dropdown selections locally, but never store an automatically detected default as an explicit user choice. Put an accessible, compact language dropdown in the header immediately after Clear, with keyboard and visual order Presets → Clear → Language. Keep this arrangement usable on narrow screens. Translate all interface labels, help text, placeholders, presets, comparison card titles, loading/success/error and validation messages, tooltips, accessibility labels, answer expansion controls, and PDF headings. Keep the product name Prompt Mixer unchanged and set the document language to `en` or `ja`.
 
 Changing language must preserve all user-entered text and checkbox selections, cancel an active comparison, clear its results, and restore the live preview without making an AI request. Clear resets form data but keeps the selected language. Selecting a preset explicitly fills its prompts in the selected language. Do not translate or overwrite user-entered text when switching languages.
 
@@ -62,6 +62,7 @@ Confirmed live diagnosis: `response_status=incomplete`, `incomplete_details.reas
 18. Each explicitly selected preset populates localized text; user-entered text is never translated by switching languages.
 19. All client-visible interface text is localized. Every card's exact prompt, preview, log entry, and PDF contain the same selected-language instruction, including Raw only; successful Japanese PDFs use the Japanese font for headings and titles too.
 20. Server failures return stable error codes with English/Japanese translations while preserving HTTP statuses, rate limits, safe diagnostics, and server-only credentials.
+21. With no valid saved choice, the initial language follows `navigator.languages` preference order with a `navigator.language` fallback, mapping `en`/`en-*` to English and `ja`/`ja-*` to Japanese case-insensitively, skipping unsupported tags, and defaulting to English; a valid saved choice wins, an invalid saved value is ignored, unavailable localStorage or browser language data does not break loading, and an auto-detected default is never persisted as an explicit choice.
 
 ## Immediate tasks
 
@@ -70,6 +71,7 @@ Confirmed live diagnosis: `response_status=incomplete`, `incomplete_details.reas
 3. Add per-card direct PDF downloads and verify full-content export without additional generation requests.
 4. Run the automated suite and manually verify the responsive comparison workflow and PDF downloads.
 5. Implement and verify English/Japanese selection, language-preserving form behavior, localized presets and errors, per-prompt language instructions, and Japanese PDF headings.
+6. Implement browser-based default language selection with saved-choice priority, `navigator.languages` preference detection, English fallback, safe initialization, and regression tests.
 ## Homework 4: Live prompt mixing
 
 Classroom testing showed that the checkboxes and Show Mix button were confusing. Presets filled optional fields without selecting them, leaving users unsure which text would be sent.

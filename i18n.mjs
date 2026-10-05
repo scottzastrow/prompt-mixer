@@ -88,6 +88,26 @@ export function normalizeLocale(locale) {
   return locale === 'ja' ? 'ja' : 'en';
 }
 
+export function matchSupportedLocale(languageTag) {
+  if (typeof languageTag !== 'string') return null;
+  const tag = languageTag.toLowerCase();
+  if (tag === 'en' || tag.startsWith('en-')) return 'en';
+  if (tag === 'ja' || tag.startsWith('ja-')) return 'ja';
+  return null;
+}
+
+export function detectPreferredLocale(saved, navigatorInfo) {
+  if (saved === 'en' || saved === 'ja') return saved;
+  const preferences = Array.isArray(navigatorInfo?.languages) && navigatorInfo.languages.length > 0
+    ? navigatorInfo.languages
+    : [navigatorInfo?.language];
+  for (const languageTag of preferences) {
+    const match = matchSupportedLocale(languageTag);
+    if (match) return match;
+  }
+  return 'en';
+}
+
 export function translate(locale, key, values = {}) {
   const language = normalizeLocale(locale);
   const template = messages[language][key] ?? messages.en[key] ?? key;
