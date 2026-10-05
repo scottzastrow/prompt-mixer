@@ -1,6 +1,8 @@
 {
   "name": "prompt-mixer",
   "private": true,
+  "author": "Scott Zastrow",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "start": "node server.mjs",

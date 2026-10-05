@@ -1,3 +1,12 @@
+/*
+ * Project: Prompt Mixer
+ * Author: Scott Zastrow
+ * Course: SEIS 606 — University of St. Thomas
+ * Description: Builds cumulative prompt variants from user inputs and runs the response comparison sequence.
+ * Copyright (c) 2026 Scott Zastrow
+ * SPDX-License-Identifier: MIT
+ */
+
 import { translate } from './i18n.mjs';
 
 export function buildComparisonPrompts(rawPrompt, optionalFields, locale = 'en') {

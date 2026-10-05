@@ -25,3 +25,15 @@ The deployment procedure for `promptmixer.vergotek.com` is in [DEPLOY.md](DEPLOY
 ## Scope
 
 The original Homework 2 specification and mockup remain as submitted. [SPEC.md](SPEC.md) tracks the subsequent online iteration with AI output.
+
+## Credits
+
+- **Project:** Prompt Mixer
+- **Author:** Scott Zastrow
+- **Course:** SEIS 606 — University of St. Thomas
+
+This project was developed with AI assistance from ChatGPT/Codex (OpenAI) and GitHub Copilot. Third-party components and fonts are credited in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+## License
+
+Prompt Mixer is licensed under the [MIT License](LICENSE). Copyright (c) 2026 Scott Zastrow.
