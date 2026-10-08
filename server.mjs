@@ -2,7 +2,7 @@
  * Project: Prompt Mixer
  * Author: Scott Zastrow
  * Course: SEIS 606 — University of St. Thomas
- * Description: Node.js HTTP server that serves the UI, applies rate limits, calls the OpenAI API, and logs interactions to MySQL.
+ * Description: Node.js HTTP server that serves the UI, applies rate limits, calls the OpenAI API, logs interactions to MySQL, and emits structured JSON operational logs.
  * Copyright (c) 2026 Scott Zastrow
  * SPDX-License-Identifier: MIT
  */
@@ -12,9 +12,11 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
+import { randomUUID } from 'node:crypto';
 import mysql from 'mysql2/promise';
 import { RequestLimits } from './limits.mjs';
 import { normalizeLocale, serverErrorMessage } from './i18n.mjs';
+import { logEvent } from './logger.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -97,20 +99,33 @@ function send(res, status, data, extraHeaders = {}) {
   res.end(JSON.stringify(data));
 }
 
-function logIncompleteOpenAIResponse(response, data) {
+// Explicit allowlist for upstream token-usage metadata, including the reasoning-token
+// count that diagnosed the earlier empty responses. Never log raw upstream error
+// objects or messages: they can echo submitted content.
+function pickUsage(usage) {
+  if (!usage || typeof usage !== 'object') return null;
+  const pick = key => (Number.isFinite(usage[key]) ? usage[key] : null);
+  const outputDetails = usage.output_tokens_details;
+  const reasoningTokens = outputDetails && Number.isFinite(outputDetails.reasoning_tokens)
+    ? outputDetails.reasoning_tokens
+    : null;
+  return { inputTokens: pick('input_tokens'), outputTokens: pick('output_tokens'), totalTokens: pick('total_tokens'), reasoningTokens };
+}
+
+function logIncompleteOpenAIResponse(requestId, response, data) {
   const outputItemTypes = Array.isArray(data?.output)
     ? data.output.map(item => item?.type).filter(Boolean)
     : [];
 
-  console.error('OpenAI response did not produce usable text output.', {
-    id: data?.id ?? null,
-    xRequestId: response.headers.get('x-request-id') ?? null,
-    http_status: response.status,
-    response_status: data?.status ?? null,
-    incomplete_details: data?.incomplete_details ?? null,
-    error: data?.error ?? null,
-    usage: data?.usage ?? null,
-    output_item_types: outputItemTypes,
+  logEvent('warn', 'openai_response_incomplete', {
+    requestId,
+    responseId: typeof data?.id === 'string' ? data.id : null,
+    upstreamRequestId: response.headers.get('x-request-id') ?? null,
+    httpStatus: response.status,
+    responseStatus: data?.status ?? null,
+    incompleteReason: data?.incomplete_details?.reason ?? null,
+    usage: pickUsage(data?.usage),
+    outputItemTypes,
   });
 }
 
@@ -137,29 +152,69 @@ function responseSchema(allowFollowUp) {
 }
 
 async function generate(req, res, isFollowUp = false) {
+  const requestId = randomUUID();
+  const startedAt = performance.now();
+  let locale = normalizeLocale(req.headers['x-ui-locale']);
+  let followUpTurn;
+  const metadata = () => ({
+    endpoint: isFollowUp ? '/api/follow-up' : '/api/generate',
+    model,
+    locale,
+    ...(followUpTurn === undefined ? {} : { followUpTurn }),
+  });
+  const end = (outcome, status, errorCode, extra = {}) => {
+    const level = status === null ? 'warn' : status >= 500 ? 'error' : status >= 400 ? 'warn' : 'info';
+    logEvent(level, 'ai_request_end', {
+      requestId,
+      outcome,
+      ...(status === null ? {} : { status }),
+      ...(errorCode ? { errorCode } : {}),
+      durationMs: Math.round(performance.now() - startedAt),
+      ...metadata(),
+      ...extra,
+    });
+  };
+  logEvent('info', 'ai_request_start', { requestId, ...metadata() });
+
   if (!req.headers['content-type']?.toLowerCase().startsWith('application/json')) {
+    end('validation_rejected', 415, 'unsupported_media_type');
     sendError(res, 415, 'unsupported_media_type');
     return;
   }
 
   let body = '';
   let bodyBytes = 0;
-  for await (const chunk of req) {
-    bodyBytes += chunk.length;
-    if (isFollowUp && bodyBytes > MAX_FOLLOW_UP_BODY_BYTES) {
-      sendError(res, 413, 'conversation_limit_reached', normalizeLocale(req.headers['x-ui-locale']));
-      return;
+  try {
+    for await (const chunk of req) {
+      bodyBytes += chunk.length;
+      if (isFollowUp && bodyBytes > MAX_FOLLOW_UP_BODY_BYTES) {
+        end('conversation_limit_reached', 413, 'conversation_limit_reached');
+        sendError(res, 413, 'conversation_limit_reached', locale);
+        return;
+      }
+      body += chunk;
+      if (!isFollowUp && body.length > 12000) {
+        end('validation_rejected', 413, 'request_too_large');
+        sendError(res, 413, 'request_too_large');
+        return;
+      }
     }
-    body += chunk;
-    if (!isFollowUp && body.length > 12000) {
-      sendError(res, 413, 'request_too_large');
-      return;
+  } catch (error) {
+    // Client disconnect or request-stream failure before the body was complete:
+    // log one terminal event, never contact OpenAI, and do not write to a dead connection.
+    end('request_interrupted', null, undefined, { errorName: error?.name ?? 'Error' });
+    if (!res.destroyed && !res.writableEnded) {
+      try {
+        sendError(res, 400, 'invalid_json', locale);
+      } catch {
+        // The connection broke between the check and the write; the terminal event is already logged.
+      }
     }
+    return;
   }
 
   let prompt;
   let input;
-  let locale = 'en';
   try {
     const payload = JSON.parse(body);
     locale = normalizeLocale(payload.locale);
@@ -170,15 +225,18 @@ async function generate(req, res, isFollowUp = false) {
         turn && validText(turn.prompt) && validText(turn.response));
       if (!validText(originalPrompt) || originalPrompt.length > 6000 || !validText(originalResponse) ||
           !validText(nextPrompt) || !validHistory) {
+        end('validation_rejected', 400, 'invalid_follow_up');
         sendError(res, 400, 'invalid_follow_up', locale);
         return;
       }
       const textLength = [originalPrompt, originalResponse, nextPrompt, ...history.flatMap(turn => [turn.prompt, turn.response])]
         .reduce((total, text) => total + Array.from(text).length, 0);
       if (history.length >= MAX_FOLLOW_UP_TURNS || textLength > MAX_CONVERSATION_CODE_POINTS) {
+        end('conversation_limit_reached', 413, 'conversation_limit_reached');
         sendError(res, 413, 'conversation_limit_reached', locale);
         return;
       }
+      followUpTurn = history.length + 1;
       const messages = [
         { role: 'user', content: originalPrompt },
         { role: 'assistant', content: originalResponse },
@@ -203,14 +261,17 @@ async function generate(req, res, isFollowUp = false) {
       input = prompt;
     }
   } catch {
+    end('validation_rejected', 400, 'invalid_json');
     sendError(res, 400, 'invalid_json');
     return;
   }
   if (!isFollowUp && (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 6000)) {
+    end('validation_rejected', 400, 'invalid_prompt');
     sendError(res, 400, 'invalid_prompt', locale);
     return;
   }
   if (!process.env.OPENAI_API_KEY) {
+    end('not_configured', 503, 'ai_not_configured');
     sendError(res, 503, 'ai_not_configured', locale);
     return;
   }
@@ -222,11 +283,13 @@ async function generate(req, res, isFollowUp = false) {
   try {
     const blocked = getLimits().reserve(ip);
     if (blocked) {
+      end('rate_limited', blocked.status, blocked.errorCode, { retryAfter: blocked.retryAfter });
       sendError(res, blocked.status, blocked.errorCode, locale, { 'Retry-After': String(blocked.retryAfter) });
       return;
     }
   } catch (error) {
-    console.error('Could not persist AI request limit:', error.name);
+    logEvent('error', 'rate_limit_store_failed', { requestId, errorName: error?.name ?? 'Error' });
+    end('rate_limit_unavailable', 503, 'rate_limit_unavailable');
     sendError(res, 503, 'rate_limit_unavailable', locale);
     return;
   }
@@ -257,8 +320,9 @@ async function generate(req, res, isFollowUp = false) {
       signal: AbortSignal.timeout(60000),
     });
     if (!response.ok) {
-      console.error(`OpenAI request failed: HTTP ${response.status}`);
-      sendError(res, response.status === 429 ? 429 : 502, response.status === 429 ? 'upstream_busy' : 'upstream_unavailable', locale);
+      const upstreamBusy = response.status === 429;
+      end('upstream_error', upstreamBusy ? 429 : 502, upstreamBusy ? 'upstream_busy' : 'upstream_unavailable', { upstreamStatus: response.status });
+      sendError(res, upstreamBusy ? 429 : 502, upstreamBusy ? 'upstream_busy' : 'upstream_unavailable', locale);
       return;
     }
     const data = await response.json();
@@ -267,10 +331,11 @@ async function generate(req, res, isFollowUp = false) {
       .map(item => item.text).join('\n').trim();
 
     if (!output || data.status === 'incomplete') {
-      logIncompleteOpenAIResponse(response, data);
+      logIncompleteOpenAIResponse(requestId, response, data);
     }
 
     if (!output) {
+      end('empty_response', 502, 'empty_response');
       sendError(res, 502, 'empty_response', locale);
       return;
     }
@@ -278,6 +343,7 @@ async function generate(req, res, isFollowUp = false) {
     try {
       structured = JSON.parse(output);
     } catch {
+      end('invalid_ai_response', 502, 'invalid_ai_response');
       sendError(res, 502, 'invalid_ai_response', locale);
       return;
     }
@@ -288,6 +354,7 @@ async function generate(req, res, isFollowUp = false) {
     );
     if (typeof structured?.answer !== 'string' || !structured.answer.trim() ||
         !validFollowUp) {
+      end('invalid_ai_response', 502, 'invalid_ai_response');
       sendError(res, 502, 'invalid_ai_response', locale);
       return;
     }
@@ -295,12 +362,16 @@ async function generate(req, res, isFollowUp = false) {
     try {
       await logInteraction(prompt, answer);
     } catch (error) {
-      console.error('Could not log AI interaction:', error.name);
+      logEvent('error', 'db_write_failed', { requestId, errorName: error?.name ?? 'Error' });
     }
 
+    end('success', 200, undefined, {
+      usage: pickUsage(data.usage),
+      ...(data.status === 'incomplete' ? { incomplete: true } : {}),
+    });
     send(res, 200, { response: answer, followUp });
   } catch (error) {
-    console.error('OpenAI request failed:', error.name);
+    end('upstream_error', 502, 'upstream_unavailable', { errorName: error?.name ?? 'Error' });
     sendError(res, 502, 'upstream_unavailable', locale);
   }
 }
@@ -350,5 +421,5 @@ export const server = createServer(async (req, res) => {
 });
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  server.listen(port, host, () => console.log(`Prompt Mixer listening on http://${host}:${port}`));
+  server.listen(port, host, () => logEvent('info', 'server_start', { host, port }));
 }

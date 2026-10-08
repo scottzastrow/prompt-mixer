@@ -72,6 +72,19 @@ Earlier iterations and deployment are recorded below. The current iteration impl
 - [x] I10-T2: Handle unavailable localStorage or browser language information without breaking initialization, and never persist an automatically detected default as an explicit user choice while keeping the dropdown and explicit-selection persistence working.
 - [x] I10-T3: Add regression tests for preference ordering, regional language tags, unsupported-language fallback, saved-choice priority, invalid saved values, and unavailable storage; run `npm test` and `git diff --check`.
 
+## Iteration 11 — structured server logging
+
+- [x] I11-T1: Add a shared server logger that writes one complete JSON record per line to stdout/stderr with a millisecond UTC timestamp, level (`info`/`warn`/`error`), stable event name, optional request ID, and explicitly selected context.
+- [x] I11-T2: Generate a server-side request ID per AI generation/follow-up request and log a start event plus exactly one terminal outcome (validation rejection, rate limiting, conversation limits, missing configuration, upstream failure, empty/invalid AI response, success) with duration and safe metadata such as model, locale, and follow-up turn.
+- [x] I11-T3: Convert startup and diagnostic messages to structured events; preserve OpenAI diagnostics through an explicit allowlist (response ID, upstream request ID, statuses, incomplete reason, token usage, output item types) and never log raw upstream error objects, prompts, answers, history, credentials, connection strings, or client IPs.
+- [x] I11-T4: Keep database prompt/response logging and log database-write failures as separate structured events tied to the request ID, preserving user-facing behavior, API response contracts, and rate limits.
+- [x] I11-T5: Document systemd journal persistence inspection, manual persistence configuration, live log viewing, and NDJSON export of valid application records (excluding systemd lifecycle messages) in DEPLOY.md without changing any server configuration.
+- [x] I11-T6: Add tests for JSON structure, timestamp format, request correlation, rejection before paid calls, terminal outcomes, and sensitive-data exclusion; update the existing diagnostic tests; run `npm test` and `git diff --check`.
+- [ ] I11-T7: Verify structured logs in the live systemd journal on Lightsail when deployment access is available.
+- [x] I11-T8: Log exactly one correlated terminal event for request-body read failures and client disconnects, with no paid call and no response written to a destroyed connection; add a regression test.
+- [x] I11-T9: Preserve reasoning-token counts in the explicitly allowlisted usage metadata used to diagnose empty responses.
+- [x] I11-T10: Document journald drop-in inspection, flushing runtime entries to persistent storage, jq installation, and per-message NDJSON export that skips malformed/non-application records without aborting.
+
 ## Deployment and production checks
 
 - [x] T8: Install the TLS certificate for promptmixer.vergotek.com via Certbot; HTTPS is complete on the production hostname.

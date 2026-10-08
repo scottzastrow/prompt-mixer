@@ -48,6 +48,46 @@ location / {
 
 For updates, pull a tested commit in `/opt/promptmixer-app`, run `npm test`, restart only `promptmixer`, and repeat the smoke test. The service loads secrets from `/etc/promptmixer/promptmixer.env`; never copy that file into Git. Preserve the prior commit for rollback. The previous Nginx site was backed up as `/etc/nginx/sites-available/promptmixer.before-ai`. A project spending alert is not necessarily a hard cap.
 
+## Operational logs in the systemd journal
+
+The service writes structured operational logs as single-line JSON objects: informational events (such as `server_start`, `ai_request_start`, and successful `ai_request_end`) go to stdout, and warnings and errors (rejections, rate limiting, upstream or database failures, and `openai_response_incomplete` diagnostics) go to stderr. systemd captures both streams in the journal for the `promptmixer` unit. The app does not write log files, and no additional database, browser telemetry, public log endpoint, or hash chain is involved. Log records never contain prompts, answers, conversation history, API keys, passwords, connection strings, or client IP addresses, so routine journal inspection is safe — but the environment file and process environment do contain the key, so keep protecting those.
+
+Inspect the effective journald configuration, including any drop-ins, and check persistence. With the default `Storage=auto`, the journal persists across reboots only when `/var/log/journal` exists; otherwise entries live only under `/run/log/journal` and are lost on reboot.
+
+```sh
+systemd-analyze cat-config systemd/journald.conf
+ls /etc/systemd/journald.conf.d/ 2>/dev/null
+ls /var/log/journal 2>/dev/null || echo "journal is volatile"
+```
+
+If persistence is needed, an administrator can enable it manually — do not script this into the deployment or change the Prompt Mixer unit or environment for it. Either set `Storage=persistent` in `/etc/systemd/journald.conf` or a drop-in such as `/etc/systemd/journald.conf.d/persistence.conf` and run `sudo systemctl restart systemd-journald`, or run `sudo mkdir -p /var/log/journal && sudo systemd-tmpfiles --create --prefix /var/log/journal && sudo systemctl restart systemd-journald`. After enabling persistence, flush the runtime entries already collected under `/run/log/journal` to persistent storage so they survive the next reboot: `sudo journalctl --flush`. Only journald configuration changes; the app is untouched.
+
+Follow live logs:
+
+```sh
+sudo journalctl -u promptmixer -f
+```
+
+Add `-o cat` to see only the raw JSON lines without journal metadata.
+
+Export valid application JSON records as NDJSON. The export requires `jq`; install it once with `sudo apt-get install -y jq`. Each journal message is parsed independently, so malformed lines and non-application records — including systemd lifecycle messages ("Started Prompt Mixer.", "Stopped...", and similar lines logged by systemd itself rather than the app) — are skipped without aborting the export:
+
+```sh
+sudo journalctl -u promptmixer --since today -o cat \
+  | jq -Rc 'fromjson? | select(
+      type == "object"
+      and (.timestamp | type == "string")
+      and (.level == "info" or .level == "warn" or .level == "error")
+      and (.event | type == "string")
+      and (.context | type == "object")
+    )' \
+  > promptmixer-events.ndjson
+```
+
+`-o cat` prints only each entry's message text, one message per line. `jq -R` reads each line as raw text, and `fromjson?` parses it independently, producing no output for lines that are not valid JSON instead of failing the whole run. The `select` keeps only records with the application's required shape: a string timestamp, a level of `info`, `warn`, or `error`, a string event name, and an object context. `-c` re-emits each surviving record as one compact NDJSON line.
+
+Retention: the app only appends events to the journal. Administrators control how long they persist through journald — for example `SystemMaxUse=` in `/etc/systemd/journald.conf`, or manual cleanup with `sudo journalctl --vacuum-time=2weeks` or `--vacuum-size=200M`. This is convenient operational storage, not tamper-proof storage: administrators can rotate or vacuum the journal, so do not treat it as an audit trail.
+
 ## Public classroom site rate limits
 
 The rate-limit branch was deployed while basic authentication was still enabled. The password rules were then removed after the live AI response and private state file were verified. The previous Nginx configuration is backed up at `/etc/nginx/sites-available/promptmixer.before-public`. Add `LIMIT_STATE_FILE=/var/lib/promptmixer/limits.json` to the protected service environment file. Add `StateDirectory=promptmixer`, `StateDirectoryMode=0700`, and `UMask=0077` to the service unit as shown above, then reload systemd and restart only `promptmixer`. The service must be able to write its private rate state; if storage fails, generation returns 503 and makes no OpenAI call. The default limits are 100 requests per minute and 200 per UTC day per IP, plus 1,000 per UTC day for the site. Optional environment settings `LIMIT_PER_MINUTE`, `LIMIT_PER_IP_DAY`, and `LIMIT_SITE_DAY` accept positive integers.
