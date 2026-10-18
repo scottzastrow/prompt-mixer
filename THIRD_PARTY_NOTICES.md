@@ -32,3 +32,27 @@ Prompt Mixer includes the following third-party software and fonts. Each remains
 - **License:** SIL Open Font License, Version 1.1 — full text preserved at [assets/fonts/OFL.txt](assets/fonts/OFL.txt)
 - **Copyright (embedded in the font file):** Copyright 2014-2021 Adobe (http://www.adobe.com/). Noto is a trademark of Google Inc.
 - **Use:** Embedded into generated PDFs to render Japanese text.
+
+## @modelcontextprotocol/sdk
+
+- **Version:** 1.32.1
+- **Source:** https://github.com/modelcontextprotocol/typescript-sdk
+- **License:** MIT License
+- **Copyright:** (c) 2024 Anthropic, PBC
+- **Use:** Official Model Context Protocol SDK used server-side for the optional, off-by-default demo-context bridge (`/mcp` Streamable HTTP endpoint and tool registration). The full license text ships in the package at `node_modules/@modelcontextprotocol/sdk/LICENSE`.
+
+## zod
+
+- **Version:** 4.6.7
+- **Source:** https://github.com/colinhacks/zod
+- **License:** MIT License
+- **Copyright:** (c) 2025 Colin McDonnell
+- **Use:** Schema validation for MCP tool inputs and the profile tool output on the demo-context bridge. The full license text ships in the package at `node_modules/zod/LICENSE`.
+
+## jose
+
+- **Version:** 6.2.12
+- **Source:** https://github.com/panva/jose
+- **License:** MIT License
+- **Copyright:** (c) 2018 Filip Skokan
+- **Use:** JWT signature and claim verification with managed JWKS retrieval (cache lifetime, refresh cooldown, fetch deduplication, timeout) for the demo-context bridge's Bearer tokens. The full license text ships in the package at `node_modules/jose/LICENSE.md`.

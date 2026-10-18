@@ -12,7 +12,10 @@
     "node": ">=20"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "jose": "^6.2.12",
     "mysql2": "^3.24.4",
-    "pdfmake": "^0.3.11"
+    "pdfmake": "^0.3.11",
+    "zod": "^4.6.7"
   }
 }

@@ -22,6 +22,10 @@ Run `npm test` for a local server check with a simulated OpenAI response. A live
 
 The deployment procedure for `promptmixer.vergotek.com` is in [DEPLOY.md](DEPLOY.md). The public site uses server-side generation limits of 100 requests/minute/IP, 200 requests/UTC day/IP, and 1,000 requests/UTC day site-wide. Counts survive restarts in a private file. The live preview remains available after a generation limit. These limits reduce accidental or automated usage but do not identify individual people or guarantee a spending cap. Keep the key in a private service environment file on the host.
 
+## Optional demo-context bridge
+
+An off-by-default MCP bridge (iteration 12, milestone 1) can expose a synthetic fixture demo session to the presenter's own ChatGPT connection over authenticated Streamable HTTP at `/mcp`. It stays disabled unless the `DEMO_IDP_*` and `DEMO_MCP_AUDIENCE` environment values are configured, and the public app behaves identically while it is off. Setup, deployment, and plugin-connection steps are documented in [DEPLOY.md](DEPLOY.md).
+
 ## Scope
 
 The original Homework 2 specification and mockup remain as submitted. [SPEC.md](SPEC.md) tracks the subsequent online iteration with AI output.

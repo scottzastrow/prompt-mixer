@@ -12,11 +12,13 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, randomInt } from 'node:crypto';
 import mysql from 'mysql2/promise';
 import { RequestLimits } from './limits.mjs';
 import { normalizeLocale, serverErrorMessage } from './i18n.mjs';
 import { logEvent } from './logger.mjs';
+import { createMcpBridge } from './mcp-bridge.mjs';
+import { createFixtureDemoStore, PAIRING_CODE_ALPHABET } from './demo-fixture-store.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -97,6 +99,67 @@ function send(res, status, data, extraHeaders = {}) {
     ...extraHeaders,
   });
   res.end(JSON.stringify(data));
+}
+
+// Demo-context bridge (iteration 12, milestone 1): disabled unless all three
+// identity-provider environment values are set, so the public app behaves
+// exactly as before by default. The bridge and its fixture store are rebuilt
+// whenever the relevant environment signature changes, which also gives tests
+// a fresh store for each fixture pairing code.
+let mcpBridgeEntry;
+function randomFixturePairingCode() {
+  // Fallback only: never logged or returned, so pairing stays impossible until
+  // DEMO_FIXTURE_PAIRING_CODE is configured deliberately.
+  return Array.from({ length: 8 }, () => PAIRING_CODE_ALPHABET[randomInt(PAIRING_CODE_ALPHABET.length)]).join('');
+}
+function positiveNumberEnv(name, fallback) {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+function getMcpBridge() {
+  const resource = process.env.DEMO_MCP_AUDIENCE;
+  const issuer = process.env.DEMO_IDP_ISSUER;
+  const jwksUri = process.env.DEMO_IDP_JWKS_URI;
+  if (!resource || !issuer || !jwksUri) return null;
+  const signature = JSON.stringify([
+    resource, issuer, jwksUri,
+    process.env.DEMO_FIXTURE_PAIRING_CODE ?? '',
+    process.env.DEMO_SESSION_TTL_HOURS ?? '',
+    process.env.DEMO_CODE_TTL_SECONDS ?? '',
+    process.env.DEMO_CODE_MAX_ATTEMPTS ?? '',
+    process.env.DEMO_LIMIT_STATE_FILE ?? '',
+    process.env.DEMO_MCP_LIMIT_PER_MINUTE ?? '',
+    process.env.DEMO_MCP_LIMIT_PER_IP_DAY ?? '',
+    process.env.DEMO_MCP_LIMIT_SITE_DAY ?? '',
+    process.env.DEMO_MCP_IDENTITY_PER_MINUTE ?? '',
+  ]);
+  if (!mcpBridgeEntry || mcpBridgeEntry.signature !== signature) {
+    const store = createFixtureDemoStore({
+      pairingCode: process.env.DEMO_FIXTURE_PAIRING_CODE || randomFixturePairingCode(),
+      sessionTtlMs: positiveNumberEnv('DEMO_SESSION_TTL_HOURS', 24) * 3_600_000,
+      codeTtlMs: positiveNumberEnv('DEMO_CODE_TTL_SECONDS', 300) * 1000,
+      maxCodeAttempts: Math.floor(positiveNumberEnv('DEMO_CODE_MAX_ATTEMPTS', 5)),
+    });
+    // A second, tighter RequestLimits instance covers /mcp per hashed client IP;
+    // the bridge additionally limits tools/call per authenticated identity.
+    const ipLimits = new RequestLimits(process.env.DEMO_LIMIT_STATE_FILE || join(root, '.demo-limit-state.json'), {
+      perMinute: Math.floor(positiveNumberEnv('DEMO_MCP_LIMIT_PER_MINUTE', 30)),
+      perDay: Math.floor(positiveNumberEnv('DEMO_MCP_LIMIT_PER_IP_DAY', 100)),
+      sitePerDay: Math.floor(positiveNumberEnv('DEMO_MCP_LIMIT_SITE_DAY', 300)),
+    });
+    mcpBridgeEntry = {
+      signature,
+      bridge: createMcpBridge({
+        resource,
+        issuer,
+        jwksUri,
+        store,
+        ipLimits,
+        identityPerMinute: Math.floor(positiveNumberEnv('DEMO_MCP_IDENTITY_PER_MINUTE', 30)),
+      }),
+    };
+  }
+  return mcpBridgeEntry.bridge;
 }
 
 // Explicit allowlist for upstream token-usage metadata, including the reasoning-token
@@ -380,6 +443,24 @@ export const server = createServer(async (req, res) => {
   const path = new URL(req.url, 'http://localhost').pathname;
   if (path === '/health' && req.method === 'GET') {
     send(res, 200, { status: 'ok' });
+    return;
+  }
+  if (path === '/.well-known/oauth-protected-resource' && req.method === 'GET') {
+    const bridge = getMcpBridge();
+    if (!bridge) {
+      sendError(res, 404, 'not_found');
+      return;
+    }
+    send(res, 200, bridge.protectedResourceMetadata);
+    return;
+  }
+  if (path === '/mcp' && (req.method === 'POST' || req.method === 'GET' || req.method === 'DELETE')) {
+    const bridge = getMcpBridge();
+    if (!bridge) {
+      sendError(res, 404, 'not_found');
+      return;
+    }
+    await bridge.handleRequest(req, res);
     return;
   }
   if (path === '/api/generate' && req.method === 'POST') {
