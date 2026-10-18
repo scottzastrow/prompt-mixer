@@ -146,21 +146,37 @@ test('cached keys are revalidated once the bounded cache lifetime elapses', asyn
 });
 
 test('JWKS fetch timeout and fetch failures yield KeysUnavailableError', async () => {
-  const hangingFetch = (url, { signal }) => new Promise((resolve, reject) => {
-    signal.addEventListener('abort', () => reject(new DOMException('The operation timed out.', 'TimeoutError')));
-  });
-  const slow = makeVerifier({ jwksFetch: hangingFetch, jwksTimeoutMs: 50 });
-  await assert.rejects(() => slow(`Bearer ${mintToken()}`), error => error instanceof KeysUnavailableError);
+  // jose aborts a hanging JWKS fetch via AbortSignal.timeout(jwksTimeoutMs).
+  // That timer is unref'd in Node, so it does not hold the event loop open;
+  // with no other ambient work the test runner would see an empty loop while
+  // this test is still awaiting and cancel it ("Promise resolution is still
+  // pending..."). A ref'd keep-alive interval guarantees the loop survives
+  // until jose's real timeout fires; it is cleared in finally.
+  const keepAlive = setInterval(() => {}, 25);
+  try {
+    let abortObserved = false;
+    const hangingFetch = (url, { signal }) => new Promise((resolve, reject) => {
+      signal.addEventListener('abort', () => {
+        abortObserved = true;
+        reject(new DOMException('The operation timed out.', 'TimeoutError'));
+      }, { once: true });
+    });
+    const slow = makeVerifier({ jwksFetch: hangingFetch, jwksTimeoutMs: 50 });
+    await assert.rejects(() => slow(`Bearer ${mintToken()}`), error => error instanceof KeysUnavailableError);
+    assert.equal(abortObserved, true, 'jose aborted the hanging fetch after its timeoutDuration');
 
-  const failingFetch = () => Promise.resolve(new Response('server error', { status: 500 }));
-  const failing = makeVerifier({ jwksFetch: failingFetch });
-  await assert.rejects(() => failing(`Bearer ${mintToken()}`), error => error instanceof KeysUnavailableError);
+    const failingFetch = () => Promise.resolve(new Response('server error', { status: 500 }));
+    const failing = makeVerifier({ jwksFetch: failingFetch });
+    await assert.rejects(() => failing(`Bearer ${mintToken()}`), error => error instanceof KeysUnavailableError);
 
-  const garbageFetch = () => Promise.resolve(new Response('not json', { status: 200, headers: { 'Content-Type': 'application/json' } }));
-  const garbage = makeVerifier({ jwksFetch: garbageFetch });
-  await assert.rejects(() => garbage(`Bearer ${mintToken()}`), error => error instanceof KeysUnavailableError);
+    const garbageFetch = () => Promise.resolve(new Response('not json', { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    const garbage = makeVerifier({ jwksFetch: garbageFetch });
+    await assert.rejects(() => garbage(`Bearer ${mintToken()}`), error => error instanceof KeysUnavailableError);
 
-  const offlineFetch = () => Promise.reject(new TypeError('fetch failed'));
-  const offline = makeVerifier({ jwksFetch: offlineFetch });
-  await assert.rejects(() => offline(`Bearer ${mintToken()}`), error => error instanceof KeysUnavailableError);
+    const offlineFetch = () => Promise.reject(new TypeError('fetch failed'));
+    const offline = makeVerifier({ jwksFetch: offlineFetch });
+    await assert.rejects(() => offline(`Bearer ${mintToken()}`), error => error instanceof KeysUnavailableError);
+  } finally {
+    clearInterval(keepAlive);
+  }
 });
