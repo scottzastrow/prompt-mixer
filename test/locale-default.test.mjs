@@ -9,7 +9,25 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { detectPreferredLocale } from '../i18n.mjs';
+import { detectPreferredLocale, getPreset, translate } from '../i18n.mjs';
+
+test('localizes the Launch Decision preset without changing its preset ID', () => {
+  assert.equal(translate('en', 'presetThree'), 'Preset 3 · Launch Decision');
+  assert.equal(translate('ja', 'presetThree'), 'プリセット3 · 公開の判断');
+  assert.deepEqual(getPreset('en', 'three'), {
+    prompt: 'Should we launch on Friday?',
+    context: 'Our classroom app works, but password reset is broken. Only five invited classmates will use it. No payments or sensitive data are involved.',
+    role: 'You are a cautious release engineer. Distinguish a limited classroom demo from a public launch.',
+    constraints: 'Answer in exactly three bullets: Decision, Biggest risk, Required safeguard. Maximum 45 words total.',
+  });
+  assert.deepEqual(getPreset('ja', 'three'), {
+    prompt: '金曜日に公開すべきでしょうか？',
+    context: '授業用アプリは動作していますが、パスワードの再設定機能が壊れています。利用するのは招待したクラスメート5人だけです。決済や機密データの取り扱いはありません。',
+    role: 'あなたは慎重なリリースエンジニアです。限定的な授業用デモと一般公開を区別してください。',
+    constraints: '「判断」「最大のリスク」「必要な対策」の3つの箇条書きだけで回答してください。全体を150文字以内にしてください。',
+  });
+  assert.equal(getPreset('en', 'unknown'), null);
+});
 
 test('saved choice takes priority over browser preferences', () => {
   assert.equal(detectPreferredLocale('ja', { languages: ['en-US'], language: 'en-US' }), 'ja');
