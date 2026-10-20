@@ -10,7 +10,7 @@
 const messages = {
   en: {
     examples: 'Examples', choosePreset: 'Choose a preset', presetOne: 'Preset 1 · Day hike',
-    presetTwo: 'Preset 2 · Variables', presetThree: 'Preset 3 · Friendly reminder',
+    presetTwo: 'Preset 2 · Variables', presetThree: 'Preset 3 · Launch Decision',
     clear: 'Clear', clearAria: 'Clear all fields and results', language: 'Language',
     languageAria: 'Choose interface language', intro: 'Choose a preset or write your own prompt. The combined prompt updates live as you type or change selections.',
     rawPrompt: 'Raw prompt', alwaysIncluded: 'Always included', rawPlaceholder: 'Enter your raw prompt',
@@ -46,7 +46,7 @@ const messages = {
   },
   ja: {
     examples: '例', choosePreset: 'プリセットを選択', presetOne: 'プリセット1 · 日帰りハイキング',
-    presetTwo: 'プリセット2 · 変数', presetThree: 'プリセット3 · やさしいリマインダー',
+    presetTwo: 'プリセット2 · 変数', presetThree: 'プリセット3 · 公開の判断',
     clear: 'クリア', clearAria: 'すべての入力と結果をクリア', language: '言語',
     languageAria: '表示言語を選択', intro: 'プリセットを選ぶか、プロンプトを入力してください。入力や選択に応じて、統合プロンプトが更新されます。',
     rawPrompt: '基本プロンプト', alwaysIncluded: '常に含める', rawPlaceholder: '基本プロンプトを入力',
@@ -136,10 +136,10 @@ export function getPreset(locale, id) {
         constraints: 'Use one concrete everyday example in 20 words or fewer.',
       },
       three: {
-        prompt: 'Write me a reminder message. Answer in one sentence.',
-        context: 'A classmate borrowed my notes last week, and I need them tomorrow.',
-        role: 'Write as a friendly classmate.',
-        constraints: 'Be polite and direct. Use 18 words or fewer.',
+        prompt: 'Should we launch on Friday?',
+        context: 'Our classroom app works, but password reset is broken. Only five invited classmates will use it. No payments or sensitive data are involved.',
+        role: 'You are a cautious release engineer. Distinguish a limited classroom demo from a public launch.',
+        constraints: 'Answer in exactly three bullets: Decision, Biggest risk, Required safeguard. Maximum 45 words total.',
       },
     },
     ja: {
@@ -156,10 +156,10 @@ export function getPreset(locale, id) {
         constraints: '身近な具体例を1つ使って説明してください。',
       },
       three: {
-        prompt: 'リマインドのメッセージを書いてください。一文で答えてください。',
-        context: '先週クラスメートにノートを貸しました。明日返してもらう必要があります。',
-        role: '親しいクラスメートのように書いてください。',
-        constraints: '丁寧で率直な表現にしてください。',
+        prompt: '金曜日に公開すべきでしょうか？',
+        context: '授業用アプリは動作していますが、パスワードの再設定機能が壊れています。利用するのは招待したクラスメート5人だけです。決済や機密データの取り扱いはありません。',
+        role: 'あなたは慎重なリリースエンジニアです。限定的な授業用デモと一般公開を区別してください。',
+        constraints: '「判断」「最大のリスク」「必要な対策」の3つの箇条書きだけで回答してください。全体を150文字以内にしてください。',
       },
     },
   };
